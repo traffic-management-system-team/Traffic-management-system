@@ -1,0 +1,14 @@
+sequenceDiagram
+    participant SC as Simulation Controller
+    participant TS as Traffic Signal Manager
+    participant QM as Queue Manager
+    participant VM as Vehicle Manager
+    participant SM as Statistics Manager
+    participant GUI as GUI
+    SC->>TS: getSignalState()
+    SC->>QM: processTraffic()
+    QM->>TS: checkPermission()
+    QM->>VM: dequeueVehicle()
+    VM-->>QM: vehicleProcessed()
+    QM->>SM: updateWaitingTime()
+    SM->>GUI: refreshStatistics()

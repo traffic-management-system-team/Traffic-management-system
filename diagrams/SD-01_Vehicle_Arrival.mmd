@@ -1,0 +1,11 @@
+sequenceDiagram
+    participant SC as Simulation Controller
+    participant VM as Vehicle Manager
+    participant QM as Queue Manager
+    participant SM as Statistics Manager
+    participant GUI as GUI
+    SC->>VM: generateVehicle()
+    VM->>QM: addVehicle(vehicle)
+    QM->>QM: enqueue(vehicle)
+    QM->>SM: updateQueueMetrics()
+    SM->>GUI: refreshStatistics()

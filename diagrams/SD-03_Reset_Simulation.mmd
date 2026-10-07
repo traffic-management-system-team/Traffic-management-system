@@ -1,0 +1,13 @@
+sequenceDiagram
+    participant U as User
+    participant GUI as GUI
+    participant SC as Simulation Controller
+    participant QM as Queue Manager
+    participant TS as Traffic Signal Manager
+    participant SM as Statistics Manager
+    U->>GUI: Click Reset
+    GUI->>SC: resetSimulation()
+    SC->>QM: clearQueues()
+    SC->>TS: resetSignals()
+    SC->>SM: resetStatistics()
+    SC-->>GUI: resetComplete()

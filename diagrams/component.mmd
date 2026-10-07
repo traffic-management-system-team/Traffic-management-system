@@ -1,0 +1,15 @@
+flowchart TB
+GUI[GUI Layer] --> CTRL[Simulation Controller]
+GUI --> IV[Input Validation]
+IV --> CTRL
+CTRL --> VM[Vehicle Manager]
+CTRL --> SM[Traffic Signal Manager]
+CTRL --> TM[Traffic Manager]
+VM --> QM[Queue Manager / FIFO]
+SM --> TM
+TM --> QM
+QM --> ST[Statistics Manager]
+TM --> ST
+ST --> GUI
+QM --> GUI
+SM --> GUI

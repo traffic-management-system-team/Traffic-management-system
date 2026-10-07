@@ -1,0 +1,20 @@
+flowchart LR
+    U[User / Operator]
+    subgraph TMS[Traffic Management System - GUI]
+      C[Configure Simulation]
+      S[Start Simulation]
+      P[Pause / Resume]
+      R[Reset Simulation]
+      G[View Traffic Signals]
+      Q[View Vehicle Queues]
+      ST[View Statistics]
+      V[Generate Vehicles]
+    end
+    U --- C
+    U --- S
+    U --- P
+    U --- R
+    U --- G
+    U --- Q
+    U --- ST
+    U --- V
