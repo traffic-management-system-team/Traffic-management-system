@@ -45,24 +45,40 @@ void testSharedCoordinator() {
     SignalCoordinator coordinator;
     TrafficSignal north(coordinator, 0);
     TrafficSignal south(coordinator, 1);
+    TrafficSignal east(coordinator, 2);
+    TrafficSignal west(coordinator, 3);
 
     check(north.changeState(SignalState::GREEN),
-          "First approach can become GREEN");
+          "North approach can become GREEN");
 
     check(!south.changeState(SignalState::GREEN),
-          "Second approach cannot become GREEN simultaneously");
+          "South cannot become GREEN while North is GREEN");
 
     check(north.changeState(SignalState::YELLOW),
-          "First approach can change to YELLOW");
+          "North can change from GREEN to YELLOW");
+
+    check(!south.changeState(SignalState::GREEN),
+          "South cannot become GREEN while North is YELLOW");
+
+    check(north.changeState(SignalState::RED),
+          "North can change from YELLOW to RED");
 
     check(south.changeState(SignalState::GREEN),
-          "Second approach can become GREEN after first leaves GREEN");
+          "South can become GREEN after North becomes RED");
+
+    check(!east.changeState(SignalState::GREEN),
+          "East cannot become GREEN while South is GREEN");
+
+    check(!west.changeState(SignalState::GREEN),
+          "West cannot become GREEN while South is GREEN");
 
     coordinator.reset();
 
     check(north.getState() == SignalState::RED &&
-          south.getState() == SignalState::RED,
-          "Coordinator reset sets all approaches to RED");
+          south.getState() == SignalState::RED &&
+          east.getState() == SignalState::RED &&
+          west.getState() == SignalState::RED,
+          "Coordinator reset sets all four approaches to RED");
 }
 
 void testInvalidInitialState() {

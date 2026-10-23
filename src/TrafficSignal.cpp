@@ -62,16 +62,17 @@ bool SignalCoordinator::changeState(
         return false;
     }
 
-    // Do not allow another approach to be GREEN.
-    if (newState == SignalState::GREEN) {
-        for (std::size_t i = 0; i < APPROACH_COUNT; ++i) {
-            if (i != approach &&
-                states[i] == SignalState::GREEN) {
-                return false;
-            }
+   
+   // A new approach can become GREEN only when
+// every other approach is RED.
+if (newState == SignalState::GREEN) {
+    for (std::size_t i = 0; i < APPROACH_COUNT; ++i) {
+        if (i != approach &&
+            states[i] != SignalState::RED) {
+            return false;
         }
     }
-
+}
     states[approach] = newState;
     return true;
 }
