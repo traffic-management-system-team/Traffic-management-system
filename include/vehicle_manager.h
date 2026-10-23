@@ -2,8 +2,9 @@
 #ifndef VEHICLE_MANAGER_H
 #define VEHICLE_MANAGER_H
 
-#include "Vehicle.h"
+#include "vehicle.h"
 
+#include <string>
 #include <cstddef>
 #include <unordered_map>
 
