@@ -1,4 +1,3 @@
-
 #ifndef QUEUE_MANAGER_H
 #define QUEUE_MANAGER_H
 
@@ -11,6 +10,12 @@
 
 class QueueManager {
 public:
+    // SAD-compatible API
+    bool addVehicle(const std::string& roadId, const Vehicle& vehicle);
+    bool dequeueVehicle(const std::string& roadId, Vehicle& vehicle);
+    std::size_t getQueueLength(const std::string& roadId) const;
+
+    // Existing API retained for backward compatibility
     void enqueue(const std::string& roadId, const Vehicle& vehicle);
     bool dequeue(const std::string& roadId, Vehicle& vehicle);
     bool isEmpty(const std::string& roadId) const;

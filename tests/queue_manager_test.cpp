@@ -50,7 +50,14 @@ int main() {
     CHECK(queue.isEmpty("Road A"));
     CHECK(queue.isEmpty("Road B"));
     CHECK(!queue.dequeue("Road A", output));
-
+    // Test the SAD-compatible API.
+    Vehicle sadCar(201, VehicleType::Car, "Lane SAD");
+    CHECK(queue.addVehicle("Road SAD", sadCar));
+    CHECK(queue.getQueueLength("Road SAD") == 1);
+    CHECK(queue.dequeueVehicle("Road SAD", output));
+    CHECK(output.getId() == 201);
+    CHECK(queue.getQueueLength("Road SAD") == 0);
+    CHECK(!queue.dequeueVehicle("Road SAD", output));
     std::cout << "All multi-road QueueManager tests passed.\n";
     return EXIT_SUCCESS;
 }
