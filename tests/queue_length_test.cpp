@@ -1,32 +1,40 @@
 
 #include "queue_manager.h"
-
-#include <cassert>
+#include <cstdlib>
 #include <iostream>
+
+#define CHECK(condition)                                                   \
+    do {                                                                   \
+        if (!(condition)) {                                                \
+            std::cerr << "FAIL: " << #condition                            \
+                      << " at " << __FILE__ << ":" << __LINE__ << '\n';    \
+            return EXIT_FAILURE;                                           \
+        }                                                                  \
+    } while (false)
 
 int main() {
     QueueManager queue;
+    Vehicle output(999, VehicleType::Car, "Lane X");
 
-    Vehicle car(1, VehicleType::Car, "North");
-    Vehicle bus(2, VehicleType::Bus, "North");
-    Vehicle output(999, VehicleType::Car, "Test");
+    CHECK(queue.getSize("North") == 0);
 
-    // TC-06: Queue length updates correctly.
-    assert(queue.getSize("North") == 0);
+    Vehicle car(1, VehicleType::Car, "Lane A");
+    Vehicle bus(2, VehicleType::Bus, "Lane B");
 
     queue.enqueue("North", car);
-    assert(queue.getSize("North") == 1);
+    CHECK(queue.getSize("North") == 1);
 
     queue.enqueue("North", bus);
-    assert(queue.getSize("North") == 2);
+    CHECK(queue.getSize("North") == 2);
 
-    assert(queue.dequeue("North", output));
-    assert(queue.getSize("North") == 1);
+    CHECK(queue.dequeue("North", output));
+    CHECK(queue.getSize("North") == 1);
 
-    assert(queue.dequeue("North", output));
-    assert(queue.getSize("North") == 0);
+    CHECK(queue.dequeue("North", output));
+    CHECK(queue.getSize("North") == 0);
 
-    std::cout << "TC-06 queue length update passed.\n";
+    CHECK(queue.isEmpty("North"));
 
-    return 0;
+    std::cout << "Queue length tests passed.\n";
+    return EXIT_SUCCESS;
 }
