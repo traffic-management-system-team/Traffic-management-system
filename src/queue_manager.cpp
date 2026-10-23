@@ -1,5 +1,25 @@
-
 #include "queue_manager.h"
+
+bool QueueManager::addVehicle(
+    const std::string& roadId,
+    const Vehicle& vehicle
+) {
+    enqueue(roadId, vehicle);
+    return true;
+}
+
+bool QueueManager::dequeueVehicle(
+    const std::string& roadId,
+    Vehicle& vehicle
+) {
+    return dequeue(roadId, vehicle);
+}
+
+std::size_t QueueManager::getQueueLength(
+    const std::string& roadId
+) const {
+    return getSize(roadId);
+}
 
 void QueueManager::enqueue(
     const std::string& roadId,
@@ -26,7 +46,6 @@ bool QueueManager::dequeue(
 
 bool QueueManager::isEmpty(const std::string& roadId) const {
     auto it = roadQueues_.find(roadId);
-
     return it == roadQueues_.end() || it->second.empty();
 }
 
