@@ -2,16 +2,20 @@
 
 TrafficManager::TrafficManager(
     TrafficSignal& trafficSignal,
-    QueueManager& manager
+    QueueManager& manager,
+    const std::string& approach
 )
     : signal(trafficSignal),
-      queueManager(manager) {
+      queueManager(manager),
+      approachId(approach) {
 }
-
 bool TrafficManager::processNextVehicle(
     const std::string& roadId,
     Vehicle& processedVehicle
-) {
+) { 
+    if (roadId != approachId) {
+        return false;
+    }
     if (!signal.canMove()) {
         return false;
     }

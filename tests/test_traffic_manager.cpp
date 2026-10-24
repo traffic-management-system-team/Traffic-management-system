@@ -21,7 +21,7 @@ void check(bool condition, const char* description) {
 void testRedSignalKeepsVehicleQueued() {
     TrafficSignal signal(SignalState::RED);
     QueueManager queue;
-    TrafficManager manager(signal, queue);
+    TrafficManager manager(signal, queue, "north");
 
     Vehicle first(1, VehicleType::Car, "north");
     Vehicle output(99, VehicleType::Bus, "placeholder");
@@ -45,7 +45,7 @@ void testYellowSignalKeepsVehicleQueued() {
           "Transition GREEN to YELLOW");
 
     QueueManager queue;
-    TrafficManager manager(signal, queue);
+    TrafficManager manager(signal, queue, "east");
 
     Vehicle first(2, VehicleType::Motorcycle, "east");
     Vehicle output(99, VehicleType::Bus, "placeholder");
@@ -67,7 +67,7 @@ void testGreenSignalProcessesOneVehicle() {
           "Transition RED to GREEN");
 
     QueueManager queue;
-    TrafficManager manager(signal, queue);
+    TrafficManager manager(signal, queue, "south");
 
     Vehicle first(10, VehicleType::Car, "south");
     Vehicle output(99, VehicleType::Bus, "placeholder");
@@ -89,7 +89,7 @@ void testEmptyQueueIsSafe() {
           "Transition RED to GREEN");
 
     QueueManager queue;
-    TrafficManager manager(signal, queue);
+    TrafficManager manager(signal, queue, "empty-road");
 
     Vehicle output(99, VehicleType::Bus, "placeholder");
 
@@ -106,7 +106,7 @@ void testFifoOrder() {
           "Transition RED to GREEN");
 
     QueueManager queue;
-    TrafficManager manager(signal, queue);
+    TrafficManager manager(signal, queue, "west");
 
     queue.enqueue("west", Vehicle(1, VehicleType::Car, "west"));
     queue.enqueue("west", Vehicle(2, VehicleType::Bus, "west"));
@@ -136,8 +136,8 @@ void testSharedCoordinatorGatesEachApproach() {
     TrafficSignal east(coordinator, 1);
 
     QueueManager queue;
-    TrafficManager northManager(north, queue);
-    TrafficManager eastManager(east, queue);
+    TrafficManager northManager(north, queue, "north");
+    TrafficManager eastManager(east, queue, "east");
 
     queue.enqueue("north", Vehicle(1, VehicleType::Car, "north"));
     queue.enqueue("east", Vehicle(2, VehicleType::Car, "east"));
@@ -171,6 +171,32 @@ void testSharedCoordinatorGatesEachApproach() {
     check(eastManager.processNextVehicle("east", output),
           "GREEN east approach processes its vehicle");
 }
+
+void testManagerCannotProcessAnotherApproach() {
+    SignalCoordinator coordinator;
+    TrafficSignal north(coordinator, 0);
+
+    QueueManager queue;
+    TrafficManager northManager(north, queue, "north");
+
+    queue.enqueue("south", Vehicle(20, VehicleType::Car, "south"));
+
+    Vehicle output(99, VehicleType::Bus, "placeholder");
+
+    check(north.changeState(SignalState::GREEN),
+          "North becomes GREEN for cross-approach regression test");
+
+    const auto southQueueSizeBefore = queue.getSize("south");
+
+    check(!northManager.processNextVehicle("south", output),
+          "North manager rejects processing from the South queue");
+
+    check(queue.getSize("south") == southQueueSizeBefore,
+          "South queue size remains unchanged after rejected processing");
+
+    check(output.getId() == 99,
+          "Rejected cross-approach processing leaves output unchanged");
+}
 }
 
 int main() {
@@ -180,6 +206,7 @@ int main() {
     testEmptyQueueIsSafe();
     testFifoOrder();
     testSharedCoordinatorGatesEachApproach();
+    testManagerCannotProcessAnotherApproach();
 
     std::cout << "\nTests passed: " << testsPassed
               << "\nTests failed: " << testsFailed << '\n';

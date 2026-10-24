@@ -11,12 +11,13 @@ class TrafficManager {
 private:
     TrafficSignal& signal;
     QueueManager& queueManager;
-
+    std::string approachId;
 public:
-    TrafficManager(
-        TrafficSignal& trafficSignal,
-        QueueManager& manager
-    );
+   TrafficManager(
+    TrafficSignal& trafficSignal,
+    QueueManager& manager,
+    const std::string& approach
+);
 
     bool processNextVehicle(
         const std::string& roadId,
