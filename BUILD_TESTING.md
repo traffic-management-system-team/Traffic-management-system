@@ -1,75 +1,222 @@
 # Build and Test Instructions
 
-## Requirements
+## 1. Requirements
 
 - A C++ compiler with C++17 support (`g++` recommended).
-- Run the commands from the repository root.
+- Windows Command Prompt (CMD).
+- Run all commands from the repository root.
+- Queue Manager tests use the `Vehicle` module integrated through PR #15.
 
-The commands below use Windows Command Prompt syntax and produce `.exe` files.
+---
 
-## PR #15 — Vehicle Manager
+## 2. PR #15 - Vehicle Manager
 
-Build:
+### Build
 
 ```cmd
 g++ -std=c++17 -Wall -Wextra -Wpedantic -Iinclude src\vehicle.cpp src\vehicle_manager.cpp tests\vehicle_manager_test.cpp -o vehicle_manager_test.exe
 ```
 
-Run:
+### Run
 
 ```cmd
 vehicle_manager_test.exe
 ```
 
-Recorded local result:
+### Expected result
 
 ```text
 All VehicleManager tests passed.
 ```
 
-## PR #16 — Queue Manager
+---
 
-**Dependency:** Queue Manager uses the `Vehicle` type provided by PR #15. The following commands require `include\vehicle.h` and `src\vehicle.cpp` to be present in the working tree. They were tested locally with those two files temporarily taken from the `dinesh/vehicle-manager-pr` branch. They should be rerun after the Vehicle module is available through the project's agreed integration workflow.
+## 3. PR #16 - Queue Manager
 
-Build and run the main multi-road queue test:
+Queue Manager depends on the `Vehicle` type and implementation supplied by PR #15. PR #15 has been merged into `main`. The Queue Manager tests compile against the integrated files `include/vehicle.h` and `src/vehicle.cpp`.
+
+Do not add duplicate copies of the Vehicle module to PR #16.
+
+### 3.1 Multi-road queue test - Debug
+
+Build:
 
 ```cmd
 g++ -std=c++17 -Wall -Wextra -Wpedantic -Iinclude src\vehicle.cpp src\queue_manager.cpp tests\queue_manager_test.cpp -o queue_manager_test.exe
+```
+
+Run:
+
+```cmd
 queue_manager_test.exe
 ```
 
-Recorded local result:
+Verified result:
 
 ```text
 All multi-road QueueManager tests passed.
 ```
 
-Build and run the empty-queue safety test:
+### 3.2 Multi-road queue test - Release
+
+Build:
+
+```cmd
+g++ -std=c++17 -DNDEBUG -O2 -Wall -Wextra -Wpedantic -Iinclude src\vehicle.cpp src\queue_manager.cpp tests\queue_manager_test.cpp -o queue_manager_release_test.exe
+```
+
+Run:
+
+```cmd
+queue_manager_release_test.exe
+```
+
+Verified result:
+
+```text
+All multi-road QueueManager tests passed.
+```
+
+### 3.3 Empty-queue safety test - Debug
+
+Build:
 
 ```cmd
 g++ -std=c++17 -Wall -Wextra -Wpedantic -Iinclude src\vehicle.cpp src\queue_manager.cpp tests\queue_empty_safety_test.cpp -o queue_empty_safety_test.exe
+```
+
+Run:
+
+```cmd
 queue_empty_safety_test.exe
 ```
 
-Recorded local result:
+Verified result:
 
 ```text
 TC-13 empty-queue safety passed.
 ```
 
-Build and run the queue-length test:
+### 3.4 Empty-queue safety test - Release
+
+Build:
+
+```cmd
+g++ -std=c++17 -DNDEBUG -O2 -Wall -Wextra -Wpedantic -Iinclude src\vehicle.cpp src\queue_manager.cpp tests\queue_empty_safety_test.cpp -o queue_empty_safety_release_test.exe
+```
+
+Run:
+
+```cmd
+queue_empty_safety_release_test.exe
+```
+
+Verified result:
+
+```text
+TC-13 empty-queue safety passed.
+```
+
+### 3.5 Queue-length test - Debug
+
+Build:
 
 ```cmd
 g++ -std=c++17 -Wall -Wextra -Wpedantic -Iinclude src\vehicle.cpp src\queue_manager.cpp tests\queue_length_test.cpp -o queue_length_test.exe
+```
+
+Run:
+
+```cmd
 queue_length_test.exe
 ```
 
-Recorded local result:
+Verified result:
 
 ```text
-TC-06 queue length update passed.
+Queue length tests passed.
 ```
 
-## Scope and CI status
+### 3.6 Queue-length test - Release
 
-These are local build/test results, not GitHub Actions results. GitHub status checks have not been verified as configured. After PR #15 is merged or the Vehicle dependency is otherwise integrated, rerun all Queue Manager commands against that integrated codebase and update this document with the new results.
+Build:
+
+```cmd
+g++ -std=c++17 -DNDEBUG -O2 -Wall -Wextra -Wpedantic -Iinclude src\vehicle.cpp src\queue_manager.cpp tests\queue_length_test.cpp -o queue_length_release_test.exe
+```
+
+Run:
+
+```cmd
+queue_length_release_test.exe
+```
+
+Verified result:
+
+```text
+Queue length tests passed.
+```
+
+All six Queue Manager test configurations above were built and executed successfully in the rebased PR #16 working tree on 24 October 2026.
+
+---
+
+## 4. Release-safe test checks
+
+The Queue Manager test files use a `CHECK` mechanism rather than relying on standard `assert()` for test verification. This keeps test checks active when compiling with `-DNDEBUG`.
+
+Both Debug and Release configurations should be tested when changing Queue Manager behavior.
+
+---
+
+## 5. Queue Manager API
+
+The Queue Manager exposes adapter methods while retaining its existing queue API for backward compatibility.
+
+The adapter methods are:
+
+- `addVehicle(roadId, vehicle)` - delegates to `enqueue` and returns `true` if the operation completes normally. Allocation failures may propagate as exceptions.
+- `dequeueVehicle(roadId, vehicle)` - delegates to `dequeue`, returning `false` if the road queue is missing or empty.
+- `getQueueLength(roadId)` - delegates to `getSize` and returns the current queue length without modifying the queue.
+
+The underlying queue operations are:
+
+- `enqueue(roadId, vehicle)`
+- `dequeue(roadId, vehicle)`
+- `getSize(roadId)`
+
+The SAD describes `addVehicle(vehicle)` and `dequeueVehicle(roadId)` at a conceptual interface level. The C++ adapter retains `roadId` for insertion and uses an output parameter for dequeueing to fit the existing per-road queue implementation.
+
+Confirm any interface differences with the team or reviewer against the agreed SAD contract.
+
+---
+
+## 6. Responsibility boundary
+
+Queue Manager manages FIFO queues and does not inspect traffic-signal state. Any requirement to allow vehicle processing only when a signal permits it must be enforced by the simulation or controller layer before requesting vehicle processing.
+
+This documents the current implementation boundary; it does not claim that signal-permission behavior has been verified end to end.
+
+---
+
+## 7. Test coverage
+
+The Queue Manager tests cover:
+
+- Multiple independent road queues.
+- FIFO queue behavior.
+- Empty or nonexistent queue handling.
+- Queue-length reporting.
+- Checks that remain active in Release builds using `-DNDEBUG`.
+
+These tests validate Queue Manager behavior in isolation. They do not establish that the complete traffic-management application has been integrated or that signal-permission behavior has been verified end to end.
+
+---
+
+## 8. Integration notes
+
+- PR #16 uses the Vehicle module integrated through PR #15.
+- Build the Queue Manager tests against the current integrated source files.
+- Do not commit duplicate copies of `include/vehicle.h` or `src/vehicle.cpp` in PR #16.
+- Re-run all six Queue Manager test configurations after changes to the Queue Manager implementation or its dependencies.
+- Verify the integrated API against the agreed SAD interpretation during review.
