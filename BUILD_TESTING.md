@@ -220,3 +220,68 @@ These tests validate Queue Manager behavior in isolation. They do not establish 
 - Do not commit duplicate copies of `include/vehicle.h` or `src/vehicle.cpp` in PR #16.
 - Re-run all six Queue Manager test configurations after changes to the Queue Manager implementation or its dependencies.
 - Verify the integrated API against the agreed SAD interpretation during review.
+
+---
+
+## 9. CMake build and deterministic simulation tests
+
+The project uses C++17 and CMake. The desktop application uses Qt 6 Widgets.
+The simulation model and all module tests can be built without Qt by disabling
+the GUI target.
+
+### 9.1 Debug tests without Qt
+
+Run from the repository root in PowerShell:
+
+```powershell
+cmake -S . -B build\debug -DBUILD_GUI=OFF -DCMAKE_BUILD_TYPE=Debug
+cmake --build build\debug --config Debug
+ctest --test-dir build\debug -C Debug --output-on-failure
+```
+
+### 9.2 Release tests without Qt
+
+```powershell
+cmake -S . -B build\release -DBUILD_GUI=OFF -DCMAKE_BUILD_TYPE=Release
+cmake --build build\release --config Release
+ctest --test-dir build\release -C Release --output-on-failure
+```
+
+The test executables use explicit checks rather than `assert`, so the checks
+remain active when Release builds define `NDEBUG`.
+
+### 9.3 Build and launch the Qt 6 application
+
+Install a C++17 compiler, CMake, and Qt 6 Widgets development files. If Qt is
+not in the default CMake package search path, set `CMAKE_PREFIX_PATH` to the
+Qt 6 installation prefix (the directory containing `lib\cmake\Qt6`).
+
+```powershell
+cmake -S . -B build\qt -DBUILD_GUI=ON -DCMAKE_PREFIX_PATH="<Qt 6 prefix>" -DCMAKE_BUILD_TYPE=Release
+cmake --build build\qt --config Release
+.\build\qt\TrafficManagementSystem.exe
+```
+
+The GUI timer requests one model tick every 1000 milliseconds. Unit tests call
+the model's logical `tick()` directly and do not wait for wall-clock time.
+
+### 9.4 Simulation tick ordering
+
+Each accepted running tick advances the logical tick count, processes existing
+vehicles through the signal-gated `TrafficManager`, creates the scheduled
+arrival (when due), then advances the active signal phase. Consequently, an
+arrival is first eligible for processing on the following tick. Arrival order
+is North, South, East, West, repeating every three ticks; the first arrival is
+North at tick 3. Each approach receives 10 green ticks followed by 2 yellow
+ticks before the next approach becomes green.
+
+Reset drains all approach queues, removes their vehicles from the
+`VehicleManager`, clears simulation statistics and timers, resets the shared
+signal coordinator, and restores North green. Starting after reset restarts the
+first arrival at North on tick 3.
+
+### 9.5 CMake test targets
+
+CTest registers these seven executables: `vehicle_manager_test`,
+`queue_manager_test`, `queue_empty_safety_test`, `queue_length_test`,
+`traffic_signal_test`, `traffic_manager_test`, and `gui_model_test`.
