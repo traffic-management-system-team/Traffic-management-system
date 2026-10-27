@@ -220,3 +220,59 @@ These tests validate Queue Manager behavior in isolation. They do not establish 
 - Do not commit duplicate copies of `include/vehicle.h` or `src/vehicle.cpp` in PR #16.
 - Re-run all six Queue Manager test configurations after changes to the Queue Manager implementation or its dependencies.
 - Verify the integrated API against the agreed SAD interpretation during review.
+
+---
+
+## 9. PR #8 - InputValidator and configuration handling (TC-10)
+
+`InputValidator` checks user-entered simulation configuration text before it reaches any simulation module. `ConfigController::submit` is the entry point: it replaces the active `SimConfig` only when every field is valid, and otherwise returns clear feedback and leaves the active config unchanged. Parsing stays separate from core simulation logic.
+
+### 9.1 TC-10 - Debug
+
+Build:
+
+```cmd
+g++ -std=c++17 -Wall -Wextra -Wpedantic -Iinclude src\input_validator.cpp src\config_controller.cpp tests\input_validator_test.cpp -o input_validator_test.exe
+```
+
+Run:
+
+```cmd
+input_validator_test.exe
+```
+
+Verified result:
+
+```text
+TC-10 input validation passed.
+```
+
+### 9.2 TC-10 - Release
+
+Build:
+
+```cmd
+g++ -std=c++17 -DNDEBUG -O2 -Wall -Wextra -Wpedantic -Iinclude src\input_validator.cpp src\config_controller.cpp tests\input_validator_test.cpp -o input_validator_release_test.exe
+```
+
+Run:
+
+```cmd
+input_validator_release_test.exe
+```
+
+Verified result:
+
+```text
+TC-10 input validation passed.
+```
+
+### 9.3 Coverage
+
+- Valid values become a structured `SimConfig`.
+- Boundary values: minimum and maximum accepted, one outside each rejected.
+- Malformed input rejected without crashing: empty, blank, letters, decimals, exponents, signs only, hex, overflow, control characters, very long strings.
+- Every invalid field reported with its own message.
+- A rejected submission leaves the active configuration unchanged.
+
+These tests validate the input path in isolation. They do not claim the GUI or simulation modules have been wired to `ConfigController` end to end.
