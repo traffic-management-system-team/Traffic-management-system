@@ -4,10 +4,10 @@
 // Structured, already-validated simulation configuration (FR-10).
 // Plain data only: no parsing and no simulation logic lives here.
 struct SimConfig {
-    int tickMs          = 500;  // timer interval in milliseconds
-    int greenTicks      = 8;    // green duration per axis, in ticks
-    int yellowTicks     = 2;    // yellow duration per axis, in ticks
-    int arrivalInterval = 3;    // one vehicle per road every N ticks
+    int tickMs          = 1000; // timer interval in milliseconds
+    int greenTicks      = 10;   // green duration per axis, in logical ticks
+    int yellowTicks     = 2;    // yellow duration per axis, in logical ticks
+    int arrivalInterval = 3;    // one vehicle per road every N logical ticks
     int maxQueue        = 12;   // maximum queued vehicles per road
 };
 
@@ -19,8 +19,9 @@ namespace SimLimits {
     constexpr int kMaxQueueMin = 1,        kMaxQueueMax = 50;
 }
 
-// Range check used as a second line of defence by the simulation module.
-inline bool isInRange(const SimConfig& c) {
+// Single source of truth for bounds. Used by InputValidator, ConfigController and
+// the simulation module as a second line of defence.
+constexpr bool isInRange(const SimConfig& c) {
     using namespace SimLimits;
     return c.tickMs >= kTickMsMin && c.tickMs <= kTickMsMax
         && c.greenTicks >= kGreenMin && c.greenTicks <= kGreenMax
@@ -28,5 +29,8 @@ inline bool isInRange(const SimConfig& c) {
         && c.arrivalInterval >= kArrivalMin && c.arrivalInterval <= kArrivalMax
         && c.maxQueue >= kMaxQueueMin && c.maxQueue <= kMaxQueueMax;
 }
+
+// The approved defaults must themselves be valid.
+static_assert(isInRange(SimConfig{}), "default SimConfig must be within SimLimits");
 
 #endif

@@ -7,6 +7,11 @@ bool ConfigController::submit(const RawConfig& raw, std::string& feedback) {
         ++rejected_;
         return false;               // nothing reaches the simulation
     }
+    if (!isInRange(r.config)) {     // defence in depth: never store out-of-range values
+        feedback = "Configuration rejected: values are outside the allowed limits.";
+        ++rejected_;
+        return false;
+    }
     active_ = r.config;
     feedback = "Configuration accepted.";
     ++accepted_;
