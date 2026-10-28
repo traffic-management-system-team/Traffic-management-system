@@ -276,3 +276,9 @@ TC-10 input validation passed.
 - A rejected submission leaves the active configuration unchanged.
 
 These tests validate the input path in isolation. They do not claim the GUI or simulation modules have been wired to `ConfigController` end to end.
+
+### 9.4 Approved defaults and build integration
+
+- Approved defaults verified by the TC-10 tests: tick interval 1000 ms, GREEN 10 logical ticks, YELLOW 2 logical ticks, vehicle arrival interval 3 logical ticks.
+- Invalid submissions never overwrite the active valid configuration; this is covered by the last-valid-configuration checks in the TC-10 tests.
+- CMake registration of `src/input_validator.cpp`, `src/config_controller.cpp` and `tests/input_validator_test.cpp` is deferred to the PR #20 integration. This PR adds no build system.
