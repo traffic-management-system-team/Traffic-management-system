@@ -282,3 +282,17 @@ These tests validate the input path in isolation. They do not claim the GUI or s
 - Approved defaults verified by the TC-10 tests: tick interval 1000 ms, GREEN 10 logical ticks, YELLOW 2 logical ticks, vehicle arrival interval 3 logical ticks.
 - Invalid submissions never overwrite the active valid configuration; this is covered by the last-valid-configuration checks in the TC-10 tests.
 - CMake registration of `src/input_validator.cpp`, `src/config_controller.cpp` and `tests/input_validator_test.cpp` is deferred to the PR #20 integration. This PR adds no build system.
+
+### 9.5 Allowed configuration ranges
+
+Defined once in `include/sim_config.h` (`SimLimits`); values outside these ranges are rejected and the last valid configuration is kept.
+
+| Field | Default | Allowed range |
+|---|---|---|
+| Tick interval (ms) | 1000 | 100 - 5000 |
+| GREEN duration (logical ticks) | 10 | 1 - 60 |
+| YELLOW duration (logical ticks) | 2 | 1 - 10 |
+| Vehicle arrival interval (logical ticks) | 3 | 1 - 20 |
+| Max queue length per road | 12 | 1 - 50 |
+
+Scope: this PR validates the five numeric values above only. It does not add configuration-file persistence or approach-name validation. Connecting the accepted configuration to the simulation model and GUI (including the arrival schedule starting with North at tick 3) and CMake registration will follow in the PR #20 integration after this PR is merged.
