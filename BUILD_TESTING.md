@@ -3,6 +3,8 @@
 ## 1. Requirements
 
 - A C++ compiler with C++17 support (`g++` recommended).
+- CMake 3.16 or newer.
+- Qt 6 Widgets development files to build and run the desktop GUI.
 - Windows Command Prompt (CMD).
 - Run all commands from the repository root.
 - Queue Manager tests use the `Vehicle` module integrated through PR #15.
@@ -220,3 +222,67 @@ These tests validate Queue Manager behavior in isolation. They do not establish 
 - Do not commit duplicate copies of `include/vehicle.h` or `src/vehicle.cpp` in PR #16.
 - Re-run all six Queue Manager test configurations after changes to the Queue Manager implementation or its dependencies.
 - Verify the integrated API against the agreed SAD interpretation during review.
+
+---
+
+## 9. CMake build and deterministic simulation tests
+
+The project uses C++17, CMake, and Qt 6 Widgets. The simulation model and all
+eight module tests can be built without Qt by disabling the GUI target.
+
+### 9.1 Debug tests without Qt
+
+```powershell
+cmake -S . -B build\debug -DBUILD_GUI=OFF -DBUILD_TESTING=ON
+cmake --build build\debug --config Debug
+ctest --test-dir build\debug -C Debug --output-on-failure
+```
+
+### 9.2 Release tests without Qt
+
+```powershell
+cmake -S . -B build\release -DBUILD_GUI=OFF -DBUILD_TESTING=ON
+cmake --build build\release --config Release
+ctest --test-dir build\release -C Release --output-on-failure
+```
+
+For single-configuration generators, set `-DCMAKE_BUILD_TYPE=Debug` or
+`Release` at configure time and omit `--config` and `-C` from the build and
+CTest commands. The test checks remain active in Release builds.
+
+### 9.3 Build and launch the Qt 6 application
+
+Install a C++17 compiler, CMake, and Qt 6 Widgets development files. If Qt is
+not in the default CMake package search path, set `CMAKE_PREFIX_PATH` to the
+Qt installation prefix.
+
+```powershell
+cmake -S . -B build\qt -DBUILD_GUI=ON -DBUILD_TESTING=ON -DCMAKE_PREFIX_PATH="<Qt 6 prefix>"
+cmake --build build\qt --config Debug
+.\build\qt\Debug\TrafficManagementSystem.exe
+```
+
+The timer interval defaults to 1000 ms and can be configured. GREEN defaults
+to 10 logical ticks, YELLOW to 2, and arrivals to every 3 ticks, with the first
+arrival on North at tick 3. Model tests advance logical ticks without sleeping.
+
+Configuration is accepted only while the simulation is stopped at logical
+tick zero. Invalid values are rejected without replacing the last accepted
+configuration. Accepted tick interval, signal durations, arrival interval, and
+maximum per-approach queue length are applied to timer and model behavior.
+
+Each accepted running tick increments the logical tick, processes existing
+vehicles through the signal-gated `TrafficManager`, creates the scheduled
+arrival if capacity permits, then advances the signal phase. Arrivals become
+eligible for processing on the following tick. Arrival rotation is North,
+South, East, West, repeating at the configured interval.
+
+Reset drains every approach queue, removes queued vehicles from the
+`VehicleManager`, clears statistics and arrival records, restores North GREEN,
+and returns the simulation to Stopped. An explicit Start resumes ticks.
+
+### 9.4 CMake test targets
+
+CTest registers `vehicle_manager_test`, `queue_manager_test`,
+`queue_empty_safety_test`, `queue_length_test`, `traffic_signal_test`,
+`traffic_manager_test`, `gui_model_test`, and `input_validator_test`.
