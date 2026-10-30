@@ -171,6 +171,116 @@ void testPauseAndReset() {
     checkOnlyExpectedGreen(model, 0);
 }
 
+void testPauseResumeRegression() {
+    SimModel model;
+    model.start();
+    runTicks(model, 6);
+
+    model.togglePause();
+    CHECK(model.state() == SimModel::State::Paused);
+    const std::uint64_t pausedAt = model.tickCount();
+
+    for (int i = 0; i < 5; ++i) {
+        CHECK(!model.tick());
+        CHECK(model.tickCount() == pausedAt);
+    }
+    checkOnlyExpectedGreen(model, 0);
+
+    model.togglePause();
+    CHECK(model.state() == SimModel::State::Running);
+    runTicks(model, 3);
+    CHECK(model.tickCount() == pausedAt + 3);
+    checkOnlyExpectedGreen(model, 0);
+
+    runTicks(model, 1);
+    CHECK(model.tickCount() == pausedAt + 4);
+    CHECK(model.signal(0) == SimModel::Signal::Yellow);
+
+    runTicks(model, 2);
+    CHECK(model.tickCount() == pausedAt + 6);
+    checkOnlyExpectedGreen(model, 2);
+}
+
+void testCustomConfigurationTiming() {
+    SimConfig config;
+    config.greenTicks = 2;
+    config.yellowTicks = 1;
+    config.arrivalInterval = 2;
+    config.maxQueue = 5;
+
+    SimModel model(config);
+    model.start();
+
+    runTicks(model, 2);
+
+    CHECK(model.signal(0) == SimModel::Signal::Yellow);
+    CHECK(model.generatedCount() == 1);
+    CHECK(model.queueLength(0) == 1);
+
+    runTicks(model, 1);
+    checkOnlyExpectedGreen(model, 2);
+
+    runTicks(model, 1);
+    CHECK(model.generatedCount() == 2);
+    CHECK(model.queueLength(2) == 1);
+
+    runTicks(model, 2);
+    CHECK(model.generatedCount() == 3);
+    checkOnlyExpectedGreen(model, 1);
+}
+
+void testMaximumQueueCapacity() {
+    SimConfig config;
+    config.greenTicks = 1;
+    config.yellowTicks = 10;
+    config.arrivalInterval = 1;
+    config.maxQueue = 1;
+
+    SimModel model(config);
+    model.start();
+
+    runTicks(model, 5);
+
+    CHECK(model.generatedCount() == 4);
+    CHECK(model.queueLength(0) == 1);
+
+    for (int road = 0; road < SimModel::kRoads; ++road) {
+        CHECK(model.queueLength(road) <= 1);
+    }
+
+    runTicks(model, 25);
+
+    for (int road = 0; road < SimModel::kRoads; ++road) {
+        CHECK(model.queueLength(road) <= 1);
+    }
+}
+
+void testConfigurationChanges() {
+    SimModel model;
+
+    SimConfig config;
+    config.greenTicks = 5;
+    config.yellowTicks = 2;
+    config.arrivalInterval = 2;
+    config.maxQueue = 5;
+
+    CHECK(model.setConfig(config));
+    CHECK(model.config().greenTicks == 5);
+    CHECK(model.config().yellowTicks == 2);
+    CHECK(model.config().arrivalInterval == 2);
+    CHECK(model.config().maxQueue == 5);
+
+    SimConfig invalidConfig = config;
+    invalidConfig.maxQueue = 0;
+
+    CHECK(!model.setConfig(invalidConfig));
+
+    model.start();
+    runTicks(model, 1);
+
+    CHECK(!model.setConfig(config));
+}
+
 void testInvalidRoads() {
     const SimModel model;
     CHECK(model.queueLength(-1) == 0);
@@ -184,7 +294,9 @@ int main() {
     testInitialStateAndSignalTiming();
     testArrivalScheduleAndProcessing();
     testPauseAndReset();
+    testPauseResumeRegression();
+    testCustomConfigurationTiming();
+    testMaximumQueueCapacity();
+    testConfigurationChanges();
     testInvalidRoads();
-    std::cout << "All simulation model tests passed.\n";
-    return EXIT_SUCCESS;
 }

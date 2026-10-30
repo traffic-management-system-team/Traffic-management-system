@@ -12,6 +12,8 @@ add_library(tms_core
     src/TrafficManager.cpp
     src/TrafficSignal.cpp
     src/gui_model.cpp
+    src/input_validator.cpp
+    src/config_controller.cpp
     src/queue_manager.cpp
     src/vehicle.cpp
     src/vehicle_manager.cpp
@@ -50,4 +52,5 @@ if(BUILD_TESTING)
     add_tms_test(traffic_signal_test tests/test_traffic.cpp)
     add_tms_test(traffic_manager_test tests/test_traffic_manager.cpp)
     add_tms_test(gui_model_test tests/gui_model_test.cpp)
+    add_tms_test(input_validator_test tests/input_validator_test.cpp)
 endif()

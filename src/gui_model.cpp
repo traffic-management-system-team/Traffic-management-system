@@ -23,8 +23,9 @@ std::size_t nextApproach(std::size_t approach) {
 }
 }
 
-SimModel::SimModel()
-    : signals_{{
+SimModel::SimModel(const SimConfig& config)
+    : config_(config),
+      signals_{{
           TrafficSignal(signalCoordinator_, 0),
           TrafficSignal(signalCoordinator_, 1),
           TrafficSignal(signalCoordinator_, 2),
@@ -36,9 +37,22 @@ SimModel::SimModel()
           TrafficManager(signals_[2], queueManager_, kRoadIds[2]),
           TrafficManager(signals_[3], queueManager_, kRoadIds[3])
       }} {
+    if (!isInRange(config_)) {
+        throw std::invalid_argument("Invalid simulation configuration");
+    }
+
     if (!signals_[currentGreenApproach_].changeState(SignalState::GREEN)) {
         throw std::logic_error("Unable to initialize North GREEN");
     }
+}
+
+bool SimModel::setConfig(const SimConfig& config) {
+    if (!isInRange(config) || state_ != State::Stopped || ticks_ != 0 ||
+        generatedCount_ != 0) {
+        return false;
+    }
+    config_ = config;
+    return true;
 }
 
 SimModel::Signal SimModel::signal(int road) const {
@@ -131,18 +145,21 @@ bool SimModel::tick() {
         ++processedCount_;
     }
 
-    if (ticks_ % kArrivalIntervalTicks == 0) {
+    if (ticks_ % static_cast<std::uint64_t>(config_.arrivalInterval) == 0) {
         const std::size_t road = kArrivalOrder[nextArrivalApproach_];
-        const Vehicle vehicle = vehicleManager_.createVehicle(
-            VehicleType::Car,
-            kRoadIds[road]
-        );
-        if (!queueManager_.addVehicle(kRoadIds[road], vehicle)) {
-            vehicleManager_.removeVehicle(vehicle.getId());
-            throw std::runtime_error("Unable to enqueue arriving vehicle");
+        if (queueLength(static_cast<int>(road)) <
+            static_cast<std::size_t>(config_.maxQueue)) {
+            const Vehicle vehicle = vehicleManager_.createVehicle(
+                VehicleType::Car,
+                kRoadIds[road]
+            );
+            if (!queueManager_.addVehicle(kRoadIds[road], vehicle)) {
+                vehicleManager_.removeVehicle(vehicle.getId());
+                throw std::runtime_error("Unable to enqueue arriving vehicle");
+            }
+            arrivalTicksByVehicle_.emplace(vehicle.getId(), ticks_);
+            ++generatedCount_;
         }
-        arrivalTicksByVehicle_.emplace(vehicle.getId(), ticks_);
-        ++generatedCount_;
         nextArrivalApproach_ =
             (nextArrivalApproach_ + 1) % kRoads;
     }
@@ -157,7 +174,7 @@ void SimModel::advanceSignalPhase() {
         signals_[currentGreenApproach_].getState();
 
     if (currentState == SignalState::GREEN &&
-        phaseElapsedTicks_ == kGreenTicks) {
+        phaseElapsedTicks_ == static_cast<std::uint64_t>(config_.greenTicks)) {
         if (!signals_[currentGreenApproach_].changeState(SignalState::YELLOW)) {
             throw std::logic_error("Unable to enter YELLOW signal phase");
         }
@@ -166,7 +183,7 @@ void SimModel::advanceSignalPhase() {
     }
 
     if (currentState == SignalState::YELLOW &&
-        phaseElapsedTicks_ == kYellowTicks) {
+        phaseElapsedTicks_ == static_cast<std::uint64_t>(config_.yellowTicks)) {
         if (!signals_[currentGreenApproach_].changeState(SignalState::RED)) {
             throw std::logic_error("Unable to end YELLOW signal phase");
         }

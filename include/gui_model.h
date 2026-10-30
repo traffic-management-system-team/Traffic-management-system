@@ -5,6 +5,7 @@
 #include "TrafficSignal.h"
 #include "queue_manager.h"
 #include "vehicle_manager.h"
+#include "sim_config.h"
 
 #include <array>
 #include <cstddef>
@@ -17,11 +18,7 @@ public:
     enum class Signal { Red, Yellow, Green };
 
     static constexpr int kRoads = 4;
-    static constexpr std::uint64_t kGreenTicks = 10;
-    static constexpr std::uint64_t kYellowTicks = 2;
-    static constexpr std::uint64_t kArrivalIntervalTicks = 3;
-
-    SimModel();
+    explicit SimModel(const SimConfig& config = SimConfig{});
 
     State state() const noexcept { return state_; }
     Signal signal(int road) const;
@@ -33,6 +30,9 @@ public:
         return totalWaitingTicks_;
     }
 
+    const SimConfig& config() const noexcept { return config_; }
+    bool setConfig(const SimConfig& config);
+
     void start() noexcept;
     void togglePause() noexcept;
     void reset();
@@ -40,6 +40,8 @@ public:
 
 private:
     void advanceSignalPhase();
+
+    SimConfig config_;
 
     State state_ = State::Stopped;
     std::uint64_t ticks_ = 0;

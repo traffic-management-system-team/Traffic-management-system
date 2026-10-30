@@ -1,9 +1,12 @@
 #include "gui_model.h"
+#include "config_controller.h"
 
 #include <QApplication>
 #include <QColor>
+#include <QFormLayout>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QMainWindow>
 #include <QPaintEvent>
 #include <QPainter>
@@ -17,10 +20,9 @@
 #include <QWidget>
 
 #include <exception>
+#include <string>
 
 namespace {
-constexpr int kTickIntervalMilliseconds = 1000;
-
 const char* roadName(int road) {
     static constexpr const char* names[SimModel::kRoads] = {
         "North", "East", "South", "West"
@@ -120,11 +122,33 @@ public:
         auto* resetButton = new QPushButton("Reset", central);
         statusLabel_ = new QLabel(central);
         statisticsLabel_ = new QLabel(central);
+        configFeedbackLabel_ = new QLabel(central);
+        configFeedbackLabel_->setWordWrap(true);
+
+        auto* configLayout = new QFormLayout();
+        tickMsInput_ = new QLineEdit(central);
+        greenTicksInput_ = new QLineEdit(central);
+        yellowTicksInput_ = new QLineEdit(central);
+        arrivalIntervalInput_ = new QLineEdit(central);
+        maxQueueInput_ = new QLineEdit(central);
+
+        updateConfigurationFields(model_.config());
+
+        configLayout->addRow("Timer interval (ms):", tickMsInput_);
+        configLayout->addRow("Green duration (ticks):", greenTicksInput_);
+        configLayout->addRow("Yellow duration (ticks):", yellowTicksInput_);
+        configLayout->addRow("Arrival interval (ticks):", arrivalIntervalInput_);
+        configLayout->addRow("Maximum queue size:", maxQueueInput_);
+        auto* applyConfigButton = new QPushButton("Apply Configuration", central);
 
         controls->addWidget(startButton);
         controls->addWidget(pauseButton_);
         controls->addWidget(resetButton);
-        controls->addSpacing(20);
+        controls->addSpacing(15);
+        controls->addLayout(configLayout);
+        controls->addWidget(applyConfigButton);
+        controls->addWidget(configFeedbackLabel_);
+        controls->addSpacing(15);
         controls->addWidget(statusLabel_);
         controls->addWidget(statisticsLabel_);
         controls->addStretch();
@@ -149,26 +173,91 @@ public:
             }
         });
 
-        auto* timer = new QTimer(this);
-        timer->setInterval(kTickIntervalMilliseconds);
-        connect(timer, &QTimer::timeout, this, [this, timer]() {
+        connect(applyConfigButton, &QPushButton::clicked, this, [this]() {
+            applyConfiguration();
+        });
+
+        timer_ = new QTimer(this);
+        timer_->setInterval(model_.config().tickMs);
+        connect(timer_, &QTimer::timeout, this, [this]() {
             try {
                 if (model_.tick()) {
                     refresh();
                 }
             } catch (const std::exception& error) {
-                timer->stop();
+                timer_->stop();
                 showSimulationError(error);
             }
         });
-        timer->start();
+        timer_->start();
 
         view_ = view;
         refresh();
-        resize(900, 540);
+        resize(1100, 560);
     }
 
 private:
+    void applyConfiguration() {
+        if (model_.state() == SimModel::State::Paused) {
+            configFeedbackLabel_->setText(
+                "Resume and reset the simulation before applying settings."
+            );
+            return;
+        }
+        if (model_.state() != SimModel::State::Stopped ||
+            model_.tickCount() != 0) {
+            configFeedbackLabel_->setText(
+                "Stop and reset the simulation before applying settings."
+            );
+            return;
+        }
+
+        RawConfig raw;
+        raw.tickMs = tickMsInput_->text().toStdString();
+        raw.greenTicks = greenTicksInput_->text().toStdString();
+        raw.yellowTicks = yellowTicksInput_->text().toStdString();
+        raw.arrivalInterval = arrivalIntervalInput_->text().toStdString();
+        raw.maxQueue = maxQueueInput_->text().toStdString();
+
+        std::string feedback;
+        if (!configController_.submit(raw, feedback)) {
+            configFeedbackLabel_->setText(QString::fromStdString(feedback));
+            return;
+        }
+
+        const SimConfig previousConfig = model_.config();
+        if (!model_.setConfig(configController_.current())) {
+            std::string ignoredFeedback;
+            configController_.submit(
+                RawConfig{
+                    std::to_string(previousConfig.tickMs),
+                    std::to_string(previousConfig.greenTicks),
+                    std::to_string(previousConfig.yellowTicks),
+                    std::to_string(previousConfig.arrivalInterval),
+                    std::to_string(previousConfig.maxQueue)
+                },
+                ignoredFeedback
+            );
+            configFeedbackLabel_->setText(
+                "The simulation rejected the configuration."
+            );
+            return;
+        }
+
+        timer_->setInterval(model_.config().tickMs);
+        updateConfigurationFields(model_.config());
+        configFeedbackLabel_->setText(QString::fromStdString(feedback));
+        refresh();
+    }
+
+    void updateConfigurationFields(const SimConfig& config) {
+        tickMsInput_->setText(QString::number(config.tickMs));
+        greenTicksInput_->setText(QString::number(config.greenTicks));
+        yellowTicksInput_->setText(QString::number(config.yellowTicks));
+        arrivalIntervalInput_->setText(QString::number(config.arrivalInterval));
+        maxQueueInput_->setText(QString::number(config.maxQueue));
+    }
+
     void showSimulationError(const std::exception& error) {
         QMessageBox::critical(
             this,
@@ -203,11 +292,19 @@ private:
         view_->update();
     }
 
+    ConfigController configController_;
     SimModel model_;
+    QTimer* timer_ = nullptr;
     IntersectionView* view_ = nullptr;
     QPushButton* pauseButton_ = nullptr;
     QLabel* statusLabel_ = nullptr;
     QLabel* statisticsLabel_ = nullptr;
+    QLabel* configFeedbackLabel_ = nullptr;
+    QLineEdit* tickMsInput_ = nullptr;
+    QLineEdit* greenTicksInput_ = nullptr;
+    QLineEdit* yellowTicksInput_ = nullptr;
+    QLineEdit* arrivalIntervalInput_ = nullptr;
+    QLineEdit* maxQueueInput_ = nullptr;
 };
 }
 
