@@ -1,0 +1,76 @@
+#include "input_validator.h"
+
+namespace {
+
+std::string shown(const std::string& s) {
+    std::string out;
+    for (std::size_t i = 0; i < s.size() && i < 12; ++i) {
+        const unsigned char c = static_cast<unsigned char>(s[i]);
+        out += (c >= 32 && c < 127) ? static_cast<char>(c) : '?';
+    }
+    if (s.size() > 12) out += "...";
+    return out;
+}
+
+void checkField(const char* name, const std::string& text, int lo, int hi,
+                int& target, std::vector<std::string>& errors) {
+    long long v = 0;
+    if (!InputValidator::parseInt(text, v)) {
+        errors.push_back(std::string(name) + " must be a whole number between " +
+                         std::to_string(lo) + " and " + std::to_string(hi) +
+                         " (got '" + shown(text) + "').");
+        return;
+    }
+    if (v < lo || v > hi) {
+        errors.push_back(std::string(name) + " must be between " + std::to_string(lo) +
+                         " and " + std::to_string(hi) + " (got " + std::to_string(v) + ").");
+        return;
+    }
+    target = static_cast<int>(v);
+}
+
+} // namespace
+
+std::string ValidationResult::summary() const {
+    std::string s;
+    for (const auto& e : errors) {
+        if (!s.empty()) s += "\n";
+        s += e;
+    }
+    return s;
+}
+
+bool InputValidator::parseInt(const std::string& text, long long& out) {
+    std::size_t b = 0, e = text.size();
+    while (b < e && (text[b] == ' ' || text[b] == '\t')) ++b;
+    while (e > b && (text[e - 1] == ' ' || text[e - 1] == '\t')) --e;
+    if (b == e || e - b > 12) return false;          // empty or absurdly long
+
+    bool neg = false;
+    if (text[b] == '+' || text[b] == '-') {
+        neg = (text[b] == '-');
+        ++b;
+        if (b == e) return false;                    // sign only
+    }
+    long long v = 0;
+    for (std::size_t i = b; i < e; ++i) {
+        if (text[i] < '0' || text[i] > '9') return false;
+        v = v * 10 + (text[i] - '0');                // <= 11 digits, cannot overflow
+    }
+    out = neg ? -v : v;
+    return true;
+}
+
+ValidationResult InputValidator::validate(const RawConfig& raw) {
+    using namespace SimLimits;
+    ValidationResult r;
+    SimConfig c;
+    checkField("Tick interval (ms)", raw.tickMs, kTickMsMin, kTickMsMax, c.tickMs, r.errors);
+    checkField("Green duration (ticks)", raw.greenTicks, kGreenMin, kGreenMax, c.greenTicks, r.errors);
+    checkField("Yellow duration (ticks)", raw.yellowTicks, kYellowMin, kYellowMax, c.yellowTicks, r.errors);
+    checkField("Arrival interval (ticks)", raw.arrivalInterval, kArrivalMin, kArrivalMax, c.arrivalInterval, r.errors);
+    checkField("Max queue length", raw.maxQueue, kMaxQueueMin, kMaxQueueMax, c.maxQueue, r.errors);
+    r.ok = r.errors.empty();
+    if (r.ok) r.config = c;
+    return r;
+}

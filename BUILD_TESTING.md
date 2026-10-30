@@ -1,222 +1,73 @@
 # Build and Test Instructions
 
-## 1. Requirements
+## Requirements
 
-- A C++ compiler with C++17 support (`g++` recommended).
-- Windows Command Prompt (CMD).
-- Run all commands from the repository root.
-- Queue Manager tests use the `Vehicle` module integrated through PR #15.
+- A C++17 compiler.
+- CMake 3.16 or newer.
+- Qt 6 Widgets to build and run the desktop GUI.
+- Run commands from the repository root.
 
----
+The project registers eight CTest targets:
 
-## 2. PR #15 - Vehicle Manager
+1. `vehicle_manager_test`
+2. `queue_manager_test`
+3. `queue_empty_safety_test`
+4. `queue_length_test`
+5. `traffic_signal_test`
+6. `traffic_manager_test`
+7. `gui_model_test`
+8. `input_validator_test`
 
-### Build
+The test targets link the shared `tms_core` library. GUI tests exercise the
+simulation model directly and do not require a Qt event loop.
 
-```cmd
-g++ -std=c++17 -Wall -Wextra -Wpedantic -Iinclude src\vehicle.cpp src\vehicle_manager.cpp tests\vehicle_manager_test.cpp -o vehicle_manager_test.exe
+## Debug tests
+
+Configure and build all eight tests without requiring Qt:
+
+```powershell
+cmake -S . -B build\debug -DBUILD_GUI=OFF -DBUILD_TESTING=ON
+cmake --build build\debug --config Debug
+ctest --test-dir build\debug -C Debug --output-on-failure
 ```
 
-### Run
+## Release tests
 
-```cmd
-vehicle_manager_test.exe
+Configure and build all eight tests in Release mode:
+
+```powershell
+cmake -S . -B build\release -DBUILD_GUI=OFF -DBUILD_TESTING=ON
+cmake --build build\release --config Release
+ctest --test-dir build\release -C Release --output-on-failure
 ```
 
-### Expected result
+These commands use CMake's multi-configuration workflow (such as the Visual
+Studio generator). For a single-configuration generator, use separate build
+directories and set `-DCMAKE_BUILD_TYPE=Debug` or `-DCMAKE_BUILD_TYPE=Release`
+at configure time; then omit `--config` and `-C` from the build and CTest
+commands.
 
-```text
-All VehicleManager tests passed.
+## Qt 6 GUI
+
+Install Qt 6 with its Widgets component and make its CMake package available to
+CMake (for example, by setting `CMAKE_PREFIX_PATH` to the Qt installation).
+Then configure and build the GUI in Debug mode:
+
+```powershell
+cmake -S . -B build\gui -DBUILD_GUI=ON -DBUILD_TESTING=ON
+cmake --build build\gui --config Debug
 ```
 
----
-
-## 3. PR #16 - Queue Manager
-
-Queue Manager depends on the `Vehicle` type and implementation supplied by PR #15. PR #15 has been merged into `main`. The Queue Manager tests compile against the integrated files `include/vehicle.h` and `src/vehicle.cpp`.
-
-Do not add duplicate copies of the Vehicle module to PR #16.
-
-### 3.1 Multi-road queue test - Debug
-
-Build:
-
-```cmd
-g++ -std=c++17 -Wall -Wextra -Wpedantic -Iinclude src\vehicle.cpp src\queue_manager.cpp tests\queue_manager_test.cpp -o queue_manager_test.exe
-```
-
-Run:
-
-```cmd
-queue_manager_test.exe
-```
-
-Verified result:
-
-```text
-All multi-road QueueManager tests passed.
-```
-
-### 3.2 Multi-road queue test - Release
-
-Build:
-
-```cmd
-g++ -std=c++17 -DNDEBUG -O2 -Wall -Wextra -Wpedantic -Iinclude src\vehicle.cpp src\queue_manager.cpp tests\queue_manager_test.cpp -o queue_manager_release_test.exe
-```
-
-Run:
-
-```cmd
-queue_manager_release_test.exe
-```
-
-Verified result:
-
-```text
-All multi-road QueueManager tests passed.
-```
-
-### 3.3 Empty-queue safety test - Debug
-
-Build:
-
-```cmd
-g++ -std=c++17 -Wall -Wextra -Wpedantic -Iinclude src\vehicle.cpp src\queue_manager.cpp tests\queue_empty_safety_test.cpp -o queue_empty_safety_test.exe
-```
-
-Run:
-
-```cmd
-queue_empty_safety_test.exe
-```
-
-Verified result:
-
-```text
-TC-13 empty-queue safety passed.
-```
-
-### 3.4 Empty-queue safety test - Release
-
-Build:
-
-```cmd
-g++ -std=c++17 -DNDEBUG -O2 -Wall -Wextra -Wpedantic -Iinclude src\vehicle.cpp src\queue_manager.cpp tests\queue_empty_safety_test.cpp -o queue_empty_safety_release_test.exe
-```
-
-Run:
-
-```cmd
-queue_empty_safety_release_test.exe
-```
-
-Verified result:
-
-```text
-TC-13 empty-queue safety passed.
-```
-
-### 3.5 Queue-length test - Debug
-
-Build:
-
-```cmd
-g++ -std=c++17 -Wall -Wextra -Wpedantic -Iinclude src\vehicle.cpp src\queue_manager.cpp tests\queue_length_test.cpp -o queue_length_test.exe
-```
-
-Run:
-
-```cmd
-queue_length_test.exe
-```
-
-Verified result:
-
-```text
-Queue length tests passed.
-```
-
-### 3.6 Queue-length test - Release
-
-Build:
-
-```cmd
-g++ -std=c++17 -DNDEBUG -O2 -Wall -Wextra -Wpedantic -Iinclude src\vehicle.cpp src\queue_manager.cpp tests\queue_length_test.cpp -o queue_length_release_test.exe
-```
-
-Run:
-
-```cmd
-queue_length_release_test.exe
-```
-
-Verified result:
-
-```text
-Queue length tests passed.
-```
-
-All six Queue Manager test configurations above were built and executed successfully in the rebased PR #16 working tree on 24 October 2026.
-
----
-
-## 4. Release-safe test checks
-
-The Queue Manager test files use a `CHECK` mechanism rather than relying on standard `assert()` for test verification. This keeps test checks active when compiling with `-DNDEBUG`.
-
-Both Debug and Release configurations should be tested when changing Queue Manager behavior.
-
----
-
-## 5. Queue Manager API
-
-The Queue Manager exposes adapter methods while retaining its existing queue API for backward compatibility.
-
-The adapter methods are:
-
-- `addVehicle(roadId, vehicle)` - delegates to `enqueue` and returns `true` if the operation completes normally. Allocation failures may propagate as exceptions.
-- `dequeueVehicle(roadId, vehicle)` - delegates to `dequeue`, returning `false` if the road queue is missing or empty.
-- `getQueueLength(roadId)` - delegates to `getSize` and returns the current queue length without modifying the queue.
-
-The underlying queue operations are:
-
-- `enqueue(roadId, vehicle)`
-- `dequeue(roadId, vehicle)`
-- `getSize(roadId)`
-
-The SAD describes `addVehicle(vehicle)` and `dequeueVehicle(roadId)` at a conceptual interface level. The C++ adapter retains `roadId` for insertion and uses an output parameter for dequeueing to fit the existing per-road queue implementation.
-
-Confirm any interface differences with the team or reviewer against the agreed SAD contract.
-
----
-
-## 6. Responsibility boundary
-
-Queue Manager manages FIFO queues and does not inspect traffic-signal state. Any requirement to allow vehicle processing only when a signal permits it must be enforced by the simulation or controller layer before requesting vehicle processing.
-
-This documents the current implementation boundary; it does not claim that signal-permission behavior has been verified end to end.
-
----
-
-## 7. Test coverage
-
-The Queue Manager tests cover:
-
-- Multiple independent road queues.
-- FIFO queue behavior.
-- Empty or nonexistent queue handling.
-- Queue-length reporting.
-- Checks that remain active in Release builds using `-DNDEBUG`.
-
-These tests validate Queue Manager behavior in isolation. They do not establish that the complete traffic-management application has been integrated or that signal-permission behavior has been verified end to end.
-
----
-
-## 8. Integration notes
-
-- PR #16 uses the Vehicle module integrated through PR #15.
-- Build the Queue Manager tests against the current integrated source files.
-- Do not commit duplicate copies of `include/vehicle.h` or `src/vehicle.cpp` in PR #16.
-- Re-run all six Queue Manager test configurations after changes to the Queue Manager implementation or its dependencies.
-- Verify the integrated API against the agreed SAD interpretation during review.
+Run the `TrafficManagementSystem` executable from the generated build directory.
+The GUI's default logical tick interval is 1000 ms. Configuration is accepted
+only before the first simulation tick; invalid values are shown in the GUI and
+do not replace the active configuration.
+
+## Test coverage
+
+The eight tests cover vehicle management, FIFO multi-road queues, empty-queue
+safety, queue lengths, safe traffic-signal transitions, signal-gated traffic
+processing, deterministic simulation timing and controls, and configuration
+validation. The `gui_model_test` checks the North → South → East → West signal
+cycle, GREEN/YELLOW durations, the default arrival schedule, queue capacity,
+pause/resume behavior, reset behavior, and configuration changes.

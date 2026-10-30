@@ -35,6 +35,13 @@ The simulation or integration layer is responsible for deciding when signal tran
 
 If a transition is rejected, the integration layer must handle the failure and must not assume that the signal state changed.
 
+The GUI-facing simulation model in `src/gui_model.cpp` owns the signal phase
+timing. The GUI timer interval defaults to 1000 ms and is configurable; signal
+durations are expressed in logical ticks, with defaults of 10 GREEN ticks and
+2 YELLOW ticks. The model rotates North → South → East → West, starts and
+resets with North GREEN, and exposes deterministic ticks for tests without
+sleeping. See `BUILD_TESTING.md` for build and test commands.
+
 ## 3. Reset Behavior
 
 Resetting a standalone signal sets that signal to RED.
@@ -42,6 +49,12 @@ Resetting a standalone signal sets that signal to RED.
 Resetting a signal connected to a shared coordinator resets every approach managed by that coordinator to RED.
 
 The integration layer must treat this as an intersection-wide reset. The simulation controller is responsible for coordinating reset operations and resuming the signal cycle safely.
+
+`SimModel` resets the shared coordinator and then explicitly restores North
+GREEN. It drains every queue and removes queued vehicles from the
+`VehicleManager` before clearing its counters and restarting the arrival
+schedule. The simulation returns to Stopped and requires an explicit Start
+before logical ticks resume.
 
 ## 4. Issue #5 — TrafficManager Integration Contract
 
@@ -59,7 +72,10 @@ The simulation or integration layer owns signal timing and must ensure that sign
 
 Resetting a coordinated signal resets all approaches, so `TrafficManager` and the simulation controller must treat this operation as intersection-wide rather than as a reset of only one road.
 
-Full integration with the Vehicle Manager and Queue Manager must be verified before Issue #5 is considered complete.
+`SimModel` owns one shared coordinator and four `TrafficSignal` instances.
+Each road's `TrafficManager` references its corresponding signal and the shared
+`QueueManager`; vehicle arrivals are created by `VehicleManager` and enqueued
+through the Queue Manager API.
 
 ## 5. Local Test Results
 
@@ -79,10 +95,10 @@ g++ -std=c++17 -DNDEBUG -Wall -Wextra -pedantic src\TrafficSignal.cpp tests\test
 .\tests\test_traffic_release.exe
 ```
 
-Both earlier local runs printed:
+Earlier local runs printed:
 
 `All TrafficSignal tests passed!`
 
-**Important:** Rerun both builds after adding the regression test for the GREEN → YELLOW → next GREEN case. Update these results only after the new tests pass.
-
-Full project integration testing is still pending.
+The complete Debug and Release test commands, including the deterministic
+simulation-model tests, are documented in `BUILD_TESTING.md`. Results from the
+current implementation must be recorded only after running those commands.
