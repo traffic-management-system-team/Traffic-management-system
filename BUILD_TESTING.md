@@ -223,9 +223,10 @@ These tests validate Queue Manager behavior in isolation. They do not establish 
 
 ---
 
+
 ## 9. PR #8 - InputValidator and configuration handling (TC-10)
 
-`InputValidator` checks user-entered simulation configuration text before it reaches any simulation module. `ConfigController::submit` is the entry point: it replaces the active `SimConfig` only when every field is valid, and otherwise returns clear feedback and leaves the active config unchanged. Parsing stays separate from core simulation logic.
+`InputValidator` checks user-entered simulation configuration text before it reaches any simulation module. `ConfigController::submit` is the entry point. It replaces the active `SimConfig` only when every field is valid. Otherwise, it returns clear feedback and leaves the active configuration unchanged. Parsing stays separate from core simulation logic.
 
 ### 9.1 TC-10 - Debug
 
@@ -269,9 +270,11 @@ TC-10 input validation passed.
 
 ### 9.3 Coverage
 
+The TC-10 tests cover:
+
 - Valid values become a structured `SimConfig`.
 - Boundary values: minimum and maximum accepted, one outside each rejected.
-- Malformed input rejected without crashing: empty, blank, letters, decimals, exponents, signs only, hex, overflow, control characters, very long strings.
+- Malformed input rejected without crashing: empty, blank, letters, decimals, exponents, signs only, hex, overflow, control characters, and very long strings.
 - Every invalid field reported with its own message.
 - A rejected submission leaves the active configuration unchanged.
 
@@ -280,19 +283,85 @@ These tests validate the input path in isolation. They do not claim the GUI or s
 ### 9.4 Approved defaults and build integration
 
 - Approved defaults verified by the TC-10 tests: tick interval 1000 ms, GREEN 10 logical ticks, YELLOW 2 logical ticks, vehicle arrival interval 3 logical ticks.
-- Invalid submissions never overwrite the active valid configuration; this is covered by the last-valid-configuration checks in the TC-10 tests.
-- CMake registration of `src/input_validator.cpp`, `src/config_controller.cpp` and `tests/input_validator_test.cpp` is deferred to the PR #20 integration. This PR adds no build system.
+- Invalid submissions never overwrite the active valid configuration. The TC-10 tests check this behavior.
+- CMake registration of `src/input_validator.cpp`, `src/config_controller.cpp`, and `tests/input_validator_test.cpp` is part of the ongoing integration work.
 
 ### 9.5 Allowed configuration ranges
 
-Defined once in `include/sim_config.h` (`SimLimits`); values outside these ranges are rejected and the last valid configuration is kept.
+Defined once in `include/sim_config.h` (`SimLimits`). Values outside these ranges are rejected, and the last valid configuration is kept.
 
 | Field | Default | Allowed range |
-|---|---|---|
+|---|---:|---:|
 | Tick interval (ms) | 1000 | 100 - 5000 |
 | GREEN duration (logical ticks) | 10 | 1 - 60 |
 | YELLOW duration (logical ticks) | 2 | 1 - 10 |
 | Vehicle arrival interval (logical ticks) | 3 | 1 - 20 |
 | Max queue length per road | 12 | 1 - 50 |
 
-Scope: this PR validates the five numeric values above only. It does not add configuration-file persistence or approach-name validation. Connecting the accepted configuration to the simulation model and GUI (including the arrival schedule starting with North at tick 3) and CMake registration will follow in the PR #20 integration after this PR is merged.
+Scope: this PR validates the five numeric values above. It does not add configuration-file persistence or approach-name validation. Connecting the accepted configuration to the simulation model and GUI, including the arrival schedule starting with North at tick 3, is part of the integration work.
+
+---
+
+## 10. CMake build and deterministic simulation tests
+
+The project uses C++17 and CMake. The desktop application uses Qt 6 Widgets. The simulation model and module tests can be built without Qt by disabling the GUI target.
+
+### 10.1 Debug tests without Qt
+
+Run from the repository root in PowerShell:
+
+```powershell
+cmake -S . -B build\debug -DBUILD_GUI=OFF -DCMAKE_BUILD_TYPE=Debug
+
+cmake --build build\debug --config Debug
+
+ctest --test-dir build\debug -C Debug --output-on-failure
+```
+
+### 10.2 Release tests without Qt
+
+```powershell
+cmake -S . -B build\release -DBUILD_GUI=OFF -DCMAKE_BUILD_TYPE=Release
+
+cmake --build build\release --config Release
+
+ctest --test-dir build\release -C Release --output-on-failure
+```
+
+The test executables use explicit checks rather than `assert`, so the checks remain active when Release builds define `NDEBUG`.
+
+### 10.3 Build and launch the Qt 6 application
+
+Install a C++17 compiler, CMake, and Qt 6 Widgets development files. If Qt is not in the default CMake package search path, set `CMAKE_PREFIX_PATH` to the Qt 6 installation prefix, the directory containing `lib/cmake/Qt6`.
+
+```powershell
+cmake -S . -B build\qt -DBUILD_GUI=ON -DCMAKE_PREFIX_PATH="<Qt 6 prefix>" -DCMAKE_BUILD_TYPE=Release
+
+cmake --build build\qt --config Release
+
+.\build\qt\TrafficManagementSystem.exe
+```
+
+The GUI timer requests one model tick every 1000 milliseconds. Unit tests call the model's logical `tick()` directly and do not wait for wall-clock time.
+
+### 10.4 Simulation tick ordering
+
+Each accepted running tick advances the logical tick count, processes existing vehicles through the signal-gated `TrafficManager`, creates the scheduled arrival when due, then advances the active signal phase.
+
+An arrival is first eligible for processing on the following tick. Arrival order is North, South, East, West, repeating every three ticks. The first arrival is North at tick 3. Each approach receives 10 green ticks followed by 2 yellow ticks before the next approach becomes green.
+
+Reset drains all approach queues, removes their vehicles from the `VehicleManager`, clears simulation statistics and timers, resets the shared signal coordinator, and restores North green. Starting after reset restarts the first arrival at North on tick 3.
+
+### 10.5 CMake test targets
+
+The current CMake configuration registers these seven test executables:
+
+- `vehicle_manager_test`
+- `queue_manager_test`
+- `queue_empty_safety_test`
+- `queue_length_test`
+- `traffic_signal_test`
+- `traffic_manager_test`
+- `gui_model_test`
+
+The `input_validator_test` target still needs to be registered in CMake as part of the configuration integration.
