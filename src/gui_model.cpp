@@ -1,11 +1,9 @@
-
 #include "gui_model.h"
 
 #include <stdexcept>
 #include <string>
 
 namespace {
-
 constexpr const char* kRoadIds[SimModel::kRoads] = {
     "north", "east", "south", "west"
 };
@@ -20,11 +18,9 @@ std::size_t nextApproach(std::size_t approach) {
         case 2: return 1;
         case 1: return 3;
         case 3: return 0;
-        default:
-            throw std::out_of_range("Invalid traffic approach");
+        default: throw std::out_of_range("Invalid traffic approach");
     }
 }
-
 }
 
 SimModel::SimModel(const SimConfig& config)
@@ -41,7 +37,6 @@ SimModel::SimModel(const SimConfig& config)
           TrafficManager(signals_[2], queueManager_, kRoadIds[2]),
           TrafficManager(signals_[3], queueManager_, kRoadIds[3])
       }} {
-
     if (!isInRange(config_)) {
         throw std::invalid_argument("Invalid simulation configuration");
     }
@@ -52,13 +47,10 @@ SimModel::SimModel(const SimConfig& config)
 }
 
 bool SimModel::setConfig(const SimConfig& config) {
-    if (!isInRange(config) ||
-        state_ != State::Stopped ||
-        ticks_ != 0 ||
+    if (!isInRange(config) || state_ != State::Stopped || ticks_ != 0 ||
         generatedCount_ != 0) {
         return false;
     }
-
     config_ = config;
     return true;
 }
@@ -69,12 +61,9 @@ SimModel::Signal SimModel::signal(int road) const {
     }
 
     switch (signals_[static_cast<std::size_t>(road)].getState()) {
-        case SignalState::GREEN:
-            return Signal::Green;
-        case SignalState::YELLOW:
-            return Signal::Yellow;
-        case SignalState::RED:
-            return Signal::Red;
+        case SignalState::GREEN: return Signal::Green;
+        case SignalState::YELLOW: return Signal::Yellow;
+        case SignalState::RED: return Signal::Red;
     }
 
     throw std::logic_error("Traffic signal has an invalid state");
@@ -84,7 +73,6 @@ std::size_t SimModel::queueLength(int road) const {
     if (road < 0 || road >= kRoads) {
         return 0;
     }
-
     return queueManager_.getQueueLength(
         kRoadIds[static_cast<std::size_t>(road)]
     );
@@ -107,30 +95,24 @@ void SimModel::togglePause() noexcept {
 void SimModel::reset() {
     for (int road = 0; road < kRoads; ++road) {
         Vehicle removed(1, VehicleType::Car, kRoadIds[road]);
-
         while (queueManager_.dequeueVehicle(kRoadIds[road], removed)) {
             if (!vehicleManager_.removeVehicle(removed.getId())) {
-                throw std::logic_error(
-                    "Queued vehicle is missing from manager"
-                );
+                throw std::logic_error("Queued vehicle is missing from manager");
             }
         }
     }
 
     arrivalTicksByVehicle_.clear();
-
     state_ = State::Stopped;
     ticks_ = 0;
     phaseElapsedTicks_ = 0;
     generatedCount_ = 0;
     processedCount_ = 0;
     totalWaitingTicks_ = 0;
-
     nextArrivalApproach_ = 0;
     currentGreenApproach_ = 0;
 
     signalCoordinator_.reset();
-
     if (!signals_[currentGreenApproach_].changeState(SignalState::GREEN)) {
         throw std::logic_error("Unable to restore North GREEN on reset");
     }
@@ -143,21 +125,17 @@ bool SimModel::tick() {
 
     ++ticks_;
 
-    // Process vehicles already waiting in queues.
     for (int road = 0; road < kRoads; ++road) {
         Vehicle processed(1, VehicleType::Car, kRoadIds[road]);
-
         if (!trafficManagers_[static_cast<std::size_t>(road)]
                  .processNextVehicle(kRoadIds[road], processed)) {
             continue;
         }
 
         const auto arrival = arrivalTicksByVehicle_.find(processed.getId());
-
         if (arrival == arrivalTicksByVehicle_.end()) {
             throw std::logic_error("Processed vehicle has no arrival record");
         }
-
         if (!vehicleManager_.removeVehicle(processed.getId())) {
             throw std::logic_error("Processed vehicle is missing from manager");
         }
@@ -167,28 +145,21 @@ bool SimModel::tick() {
         ++processedCount_;
     }
 
-    // Generate a vehicle at the configured interval.
     if (ticks_ % static_cast<std::uint64_t>(config_.arrivalInterval) == 0) {
         const std::size_t road = kArrivalOrder[nextArrivalApproach_];
-
-        // Do not exceed the configured queue capacity.
         if (queueLength(static_cast<int>(road)) <
             static_cast<std::size_t>(config_.maxQueue)) {
-
             const Vehicle vehicle = vehicleManager_.createVehicle(
                 VehicleType::Car,
                 kRoadIds[road]
             );
-
             if (!queueManager_.addVehicle(kRoadIds[road], vehicle)) {
                 vehicleManager_.removeVehicle(vehicle.getId());
                 throw std::runtime_error("Unable to enqueue arriving vehicle");
             }
-
             arrivalTicksByVehicle_.emplace(vehicle.getId(), ticks_);
             ++generatedCount_;
         }
-
         nextArrivalApproach_ =
             (nextArrivalApproach_ + 1) % kRoads;
     }
@@ -199,36 +170,27 @@ bool SimModel::tick() {
 
 void SimModel::advanceSignalPhase() {
     ++phaseElapsedTicks_;
-
     const SignalState currentState =
         signals_[currentGreenApproach_].getState();
 
     if (currentState == SignalState::GREEN &&
-        phaseElapsedTicks_ ==
-            static_cast<std::uint64_t>(config_.greenTicks)) {
-
+        phaseElapsedTicks_ == static_cast<std::uint64_t>(config_.greenTicks)) {
         if (!signals_[currentGreenApproach_].changeState(SignalState::YELLOW)) {
             throw std::logic_error("Unable to enter YELLOW signal phase");
         }
-
         phaseElapsedTicks_ = 0;
         return;
     }
 
     if (currentState == SignalState::YELLOW &&
-        phaseElapsedTicks_ ==
-            static_cast<std::uint64_t>(config_.yellowTicks)) {
-
+        phaseElapsedTicks_ == static_cast<std::uint64_t>(config_.yellowTicks)) {
         if (!signals_[currentGreenApproach_].changeState(SignalState::RED)) {
             throw std::logic_error("Unable to end YELLOW signal phase");
         }
-
         currentGreenApproach_ = nextApproach(currentGreenApproach_);
-
         if (!signals_[currentGreenApproach_].changeState(SignalState::GREEN)) {
             throw std::logic_error("Unable to grant next GREEN signal");
         }
-
         phaseElapsedTicks_ = 0;
     }
 }

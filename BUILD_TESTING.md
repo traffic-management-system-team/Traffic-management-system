@@ -278,13 +278,17 @@ The TC-10 tests cover:
 - Every invalid field reported with its own message.
 - A rejected submission leaves the active configuration unchanged.
 
-These tests validate the input path in isolation. They do not claim the GUI or simulation modules have been wired to `ConfigController` end to end.
+These tests exercise validation and controller behavior directly. The accepted
+configuration is also integrated with the simulation model and Qt GUI; the
+model applies signal timings, arrival intervals, and queue capacity, while the
+GUI applies the configured timer interval.
 
 ### 9.4 Approved defaults and build integration
 
 - Approved defaults verified by the TC-10 tests: tick interval 1000 ms, GREEN 10 logical ticks, YELLOW 2 logical ticks, vehicle arrival interval 3 logical ticks.
 - Invalid submissions never overwrite the active valid configuration. The TC-10 tests check this behavior.
-- CMake registration of `src/input_validator.cpp`, `src/config_controller.cpp`, and `tests/input_validator_test.cpp` is part of the ongoing integration work.
+- `src/input_validator.cpp`, `src/config_controller.cpp`, and
+  `tests/input_validator_test.cpp` are registered in the current CMake build.
 
 ### 9.5 Allowed configuration ranges
 
@@ -298,7 +302,9 @@ Defined once in `include/sim_config.h` (`SimLimits`). Values outside these range
 | Vehicle arrival interval (logical ticks) | 3 | 1 - 20 |
 | Max queue length per road | 12 | 1 - 50 |
 
-Scope: this PR validates the five numeric values above. It does not add configuration-file persistence or approach-name validation. Connecting the accepted configuration to the simulation model and GUI, including the arrival schedule starting with North at tick 3, is part of the integration work.
+Configuration-file persistence and approach-name validation are not included.
+The model enforces the configured per-approach queue capacity. The GUI rejects
+configuration changes after simulation starts and reports validation feedback.
 
 ---
 
@@ -311,7 +317,7 @@ The project uses C++17 and CMake. The desktop application uses Qt 6 Widgets. The
 Run from the repository root in PowerShell:
 
 ```powershell
-cmake -S . -B build\debug -DBUILD_GUI=OFF -DCMAKE_BUILD_TYPE=Debug
+cmake -S . -B build\debug -DBUILD_GUI=OFF -DBUILD_TESTING=ON
 
 cmake --build build\debug --config Debug
 
@@ -321,7 +327,7 @@ ctest --test-dir build\debug -C Debug --output-on-failure
 ### 10.2 Release tests without Qt
 
 ```powershell
-cmake -S . -B build\release -DBUILD_GUI=OFF -DCMAKE_BUILD_TYPE=Release
+cmake -S . -B build\release -DBUILD_GUI=OFF -DBUILD_TESTING=ON
 
 cmake --build build\release --config Release
 
@@ -354,7 +360,7 @@ Reset drains all approach queues, removes their vehicles from the `VehicleManage
 
 ### 10.5 CMake test targets
 
-The current CMake configuration registers these seven test executables:
+The current CMake configuration registers these eight test executables:
 
 - `vehicle_manager_test`
 - `queue_manager_test`
@@ -363,5 +369,4 @@ The current CMake configuration registers these seven test executables:
 - `traffic_signal_test`
 - `traffic_manager_test`
 - `gui_model_test`
-
-The `input_validator_test` target still needs to be registered in CMake as part of the configuration integration.
+- `input_validator_test`

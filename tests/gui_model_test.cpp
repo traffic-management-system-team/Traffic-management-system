@@ -171,6 +171,36 @@ void testPauseAndReset() {
     checkOnlyExpectedGreen(model, 0);
 }
 
+void testPauseResumeRegression() {
+    SimModel model;
+    model.start();
+    runTicks(model, 6);
+
+    model.togglePause();
+    CHECK(model.state() == SimModel::State::Paused);
+    const std::uint64_t pausedAt = model.tickCount();
+
+    for (int i = 0; i < 5; ++i) {
+        CHECK(!model.tick());
+        CHECK(model.tickCount() == pausedAt);
+    }
+    checkOnlyExpectedGreen(model, 0);
+
+    model.togglePause();
+    CHECK(model.state() == SimModel::State::Running);
+    runTicks(model, 3);
+    CHECK(model.tickCount() == pausedAt + 3);
+    checkOnlyExpectedGreen(model, 0);
+
+    runTicks(model, 1);
+    CHECK(model.tickCount() == pausedAt + 4);
+    CHECK(model.signal(0) == SimModel::Signal::Yellow);
+
+    runTicks(model, 2);
+    CHECK(model.tickCount() == pausedAt + 6);
+    checkOnlyExpectedGreen(model, 2);
+}
+
 void testCustomConfigurationTiming() {
     SimConfig config;
     config.greenTicks = 2;
@@ -264,6 +294,7 @@ int main() {
     testInitialStateAndSignalTiming();
     testArrivalScheduleAndProcessing();
     testPauseAndReset();
+    testPauseResumeRegression();
     testCustomConfigurationTiming();
     testMaximumQueueCapacity();
     testConfigurationChanges();

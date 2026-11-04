@@ -35,11 +35,12 @@ The simulation or integration layer is responsible for deciding when signal tran
 
 If a transition is rejected, the integration layer must handle the failure and must not assume that the signal state changed.
 
-The GUI-facing simulation model in `src/gui_model.cpp` owns the Sprint 1 phase
-timer. It advances one logical second per tick, holds GREEN for 10 ticks and
-YELLOW for 2 ticks, then rotates North → South → East → West. The model starts
-and resets with North GREEN. Its deterministic tick ordering is documented in
-`BUILD_TESTING.md`; model tests advance ticks directly without sleeping.
+The GUI-facing simulation model in `src/gui_model.cpp` owns signal phase
+timing. The GUI timer interval defaults to 1000 ms and is configurable; signal
+durations use logical ticks, with defaults of 10 GREEN ticks and 2 YELLOW ticks.
+The model rotates North → South → East → West, starts and resets with North
+GREEN, and exposes deterministic ticks for tests without sleeping. See
+`BUILD_TESTING.md` for build and test commands.
 
 ## 3. Reset Behavior
 
@@ -50,9 +51,10 @@ Resetting a signal connected to a shared coordinator resets every approach manag
 The integration layer must treat this as an intersection-wide reset. The simulation controller is responsible for coordinating reset operations and resuming the signal cycle safely.
 
 `SimModel` resets the shared coordinator and then explicitly restores North
-GREEN. It also drains every queue and removes queued vehicles from the
+GREEN. It drains every queue and removes queued vehicles from the
 `VehicleManager` before clearing its counters and restarting the arrival
-schedule.
+schedule. The simulation returns to Stopped and requires an explicit Start
+before logical ticks resume.
 
 ## 4. Issue #5 — TrafficManager Integration Contract
 
