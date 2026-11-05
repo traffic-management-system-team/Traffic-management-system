@@ -12,6 +12,14 @@ constexpr std::size_t kArrivalOrder[SimModel::kRoads] = {
     0, 2, 1, 3
 };
 
+constexpr std::size_t kStatisticsRoadOrder[kSimulationApproachCount] = {
+    0, 2, 1, 3
+};
+
+constexpr std::size_t kRoadStatisticsOrder[SimModel::kRoads] = {
+    0, 2, 1, 3
+};
+
 std::size_t nextApproach(std::size_t approach) {
     switch (approach) {
         case 0: return 2;
@@ -78,6 +86,39 @@ std::size_t SimModel::queueLength(int road) const {
     );
 }
 
+SimulationStatistics SimModel::statistics() const {
+    SimulationStatistics result;
+    result.tickCount = ticks_;
+    result.vehiclesGenerated = generatedCount_;
+    result.vehiclesProcessed = processedCount_;
+    result.totalWaitingTicks = totalWaitingTicks_;
+
+    for (std::size_t approach = 0;
+         approach < kSimulationApproachCount;
+         ++approach) {
+        const std::size_t road = kStatisticsRoadOrder[approach];
+        auto& approachStats = result.approaches[approach];
+        approachStats.vehiclesGenerated = generatedByApproach_[approach];
+        approachStats.vehiclesProcessed = processedByApproach_[approach];
+        approachStats.vehiclesWaiting =
+            queueManager_.getQueueLength(kRoadIds[road]);
+        result.vehiclesWaiting += approachStats.vehiclesWaiting;
+    }
+
+    if (processedCount_ != 0) {
+        result.averageWaitingTicks =
+            static_cast<double>(totalWaitingTicks_) /
+            static_cast<double>(processedCount_);
+    }
+    if (ticks_ != 0) {
+        result.processedPerLogicalTick =
+            static_cast<double>(processedCount_) /
+            static_cast<double>(ticks_);
+    }
+
+    return result;
+}
+
 void SimModel::start() noexcept {
     if (state_ == State::Stopped) {
         state_ = State::Running;
@@ -109,6 +150,8 @@ void SimModel::reset() {
     generatedCount_ = 0;
     processedCount_ = 0;
     totalWaitingTicks_ = 0;
+    generatedByApproach_.fill(0);
+    processedByApproach_.fill(0);
     nextArrivalApproach_ = 0;
     currentGreenApproach_ = 0;
 
@@ -143,6 +186,9 @@ bool SimModel::tick() {
         totalWaitingTicks_ += ticks_ - arrival->second;
         arrivalTicksByVehicle_.erase(arrival);
         ++processedCount_;
+        ++processedByApproach_[
+            kRoadStatisticsOrder[static_cast<std::size_t>(road)]
+        ];
     }
 
     if (ticks_ % static_cast<std::uint64_t>(config_.arrivalInterval) == 0) {
@@ -159,6 +205,7 @@ bool SimModel::tick() {
             }
             arrivalTicksByVehicle_.emplace(vehicle.getId(), ticks_);
             ++generatedCount_;
+            ++generatedByApproach_[kRoadStatisticsOrder[road]];
         }
         nextArrivalApproach_ =
             (nextArrivalApproach_ + 1) % kRoads;

@@ -29,6 +29,138 @@ void checkOnlyExpectedGreen(const SimModel& model, int expectedRoad) {
     CHECK(greenCount == 1);
 }
 
+bool sameStatistics(
+    const SimulationStatistics& left,
+    const SimulationStatistics& right
+) {
+    if (left.tickCount != right.tickCount ||
+        left.vehiclesGenerated != right.vehiclesGenerated ||
+        left.vehiclesProcessed != right.vehiclesProcessed ||
+        left.vehiclesWaiting != right.vehiclesWaiting ||
+        left.totalWaitingTicks != right.totalWaitingTicks ||
+        left.averageWaitingTicks != right.averageWaitingTicks ||
+        left.processedPerLogicalTick != right.processedPerLogicalTick) {
+        return false;
+    }
+
+    for (std::size_t i = 0; i < kSimulationApproachCount; ++i) {
+        if (left.approaches[i].vehiclesGenerated !=
+                right.approaches[i].vehiclesGenerated ||
+            left.approaches[i].vehiclesProcessed !=
+                right.approaches[i].vehiclesProcessed ||
+            left.approaches[i].vehiclesWaiting !=
+                right.approaches[i].vehiclesWaiting) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void testInitialStatistics() {
+    SimModel model;
+    const SimulationStatistics stats = model.statistics();
+
+    CHECK(stats.tickCount == 0);
+    CHECK(stats.vehiclesGenerated == 0);
+    CHECK(stats.vehiclesProcessed == 0);
+    CHECK(stats.vehiclesWaiting == 0);
+    CHECK(stats.totalWaitingTicks == 0);
+    CHECK(stats.averageWaitingTicks == 0.0);
+    CHECK(stats.processedPerLogicalTick == 0.0);
+    for (const auto& approach : stats.approaches) {
+        CHECK(approach.vehiclesGenerated == 0);
+        CHECK(approach.vehiclesProcessed == 0);
+        CHECK(approach.vehiclesWaiting == 0);
+    }
+}
+
+void testStatisticsContract() {
+    SimModel model;
+    model.start();
+
+    runTicks(model, 3);
+    SimulationStatistics stats = model.statistics();
+    CHECK(stats.tickCount == 3);
+    CHECK(stats.vehiclesGenerated == 1);
+    CHECK(stats.vehiclesProcessed == 0);
+    CHECK(stats.vehiclesWaiting == 1);
+    CHECK(stats.approaches[static_cast<std::size_t>(
+              SimulationApproach::North)].vehiclesGenerated == 1);
+    CHECK(stats.approaches[static_cast<std::size_t>(
+              SimulationApproach::North)].vehiclesWaiting == 1);
+
+    runTicks(model, 1);
+    stats = model.statistics();
+    CHECK(stats.tickCount == 4);
+    CHECK(stats.vehiclesGenerated == 1);
+    CHECK(stats.vehiclesProcessed == 1);
+    CHECK(stats.vehiclesWaiting == 0);
+    CHECK(stats.totalWaitingTicks == 1);
+    CHECK(stats.averageWaitingTicks == 1.0);
+    CHECK(stats.processedPerLogicalTick == 0.25);
+    CHECK(stats.approaches[static_cast<std::size_t>(
+              SimulationApproach::North)].vehiclesProcessed == 1);
+
+    runTicks(model, 9);
+    stats = model.statistics();
+    CHECK(stats.tickCount == 13);
+    CHECK(stats.vehiclesGenerated == 4);
+    CHECK(stats.vehiclesProcessed == 2);
+    CHECK(stats.vehiclesWaiting == 2);
+    CHECK(stats.totalWaitingTicks == 8);
+    CHECK(stats.averageWaitingTicks == 4.0);
+    CHECK(stats.approaches[static_cast<std::size_t>(
+              SimulationApproach::North)].vehiclesGenerated == 1);
+    CHECK(stats.approaches[static_cast<std::size_t>(
+              SimulationApproach::North)].vehiclesProcessed == 1);
+    CHECK(stats.approaches[static_cast<std::size_t>(
+              SimulationApproach::South)].vehiclesGenerated == 1);
+    CHECK(stats.approaches[static_cast<std::size_t>(
+              SimulationApproach::South)].vehiclesProcessed == 1);
+    CHECK(stats.approaches[static_cast<std::size_t>(
+              SimulationApproach::East)].vehiclesWaiting == 1);
+    CHECK(stats.approaches[static_cast<std::size_t>(
+              SimulationApproach::West)].vehiclesWaiting == 1);
+
+    const SimulationStatistics beforeReads = model.statistics();
+    const std::uint64_t tickBeforeReads = model.tickCount();
+    const std::size_t northQueueBeforeReads = model.queueLength(0);
+    for (int i = 0; i < 10; ++i) {
+        CHECK(sameStatistics(beforeReads, model.statistics()));
+    }
+    CHECK(model.tickCount() == tickBeforeReads);
+    CHECK(model.queueLength(0) == northQueueBeforeReads);
+
+    model.togglePause();
+    const SimulationStatistics pausedStats = model.statistics();
+    CHECK(!model.tick());
+    CHECK(sameStatistics(pausedStats, model.statistics()));
+    model.togglePause();
+    CHECK(model.tick());
+    CHECK(model.statistics().tickCount == 14);
+
+    const SimConfig configBeforeReset = model.config();
+    model.reset();
+    CHECK(model.config().tickMs == configBeforeReset.tickMs);
+    CHECK(model.config().greenTicks == configBeforeReset.greenTicks);
+    CHECK(model.config().yellowTicks == configBeforeReset.yellowTicks);
+    CHECK(model.config().arrivalInterval == configBeforeReset.arrivalInterval);
+    CHECK(model.config().maxQueue == configBeforeReset.maxQueue);
+    stats = model.statistics();
+    CHECK(stats.tickCount == 0);
+    CHECK(stats.vehiclesGenerated == 0);
+    CHECK(stats.vehiclesProcessed == 0);
+    CHECK(stats.vehiclesWaiting == 0);
+    CHECK(stats.totalWaitingTicks == 0);
+    CHECK(stats.averageWaitingTicks == 0.0);
+    CHECK(stats.processedPerLogicalTick == 0.0);
+    for (const auto& approach : stats.approaches) {
+        CHECK(approach.vehiclesGenerated == 0);
+        CHECK(approach.vehiclesProcessed == 0);
+        CHECK(approach.vehiclesWaiting == 0);
+    }
+}
+
 void testInitialStateAndSignalTiming() {
     SimModel model;
     CHECK(model.state() == SimModel::State::Stopped);
@@ -291,6 +423,8 @@ void testInvalidRoads() {
 }
 
 int main() {
+    testInitialStatistics();
+    testStatisticsContract();
     testInitialStateAndSignalTiming();
     testArrivalScheduleAndProcessing();
     testPauseAndReset();

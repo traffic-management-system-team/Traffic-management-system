@@ -6,6 +6,7 @@
 #include "queue_manager.h"
 #include "vehicle_manager.h"
 #include "sim_config.h"
+#include "simulation_statistics.h"
 
 #include <array>
 #include <cstddef>
@@ -29,6 +30,7 @@ public:
     std::uint64_t totalWaitingTicks() const noexcept {
         return totalWaitingTicks_;
     }
+    SimulationStatistics statistics() const;
 
     const SimConfig& config() const noexcept { return config_; }
     bool setConfig(const SimConfig& config);
@@ -49,6 +51,10 @@ private:
     std::uint64_t generatedCount_ = 0;
     std::uint64_t processedCount_ = 0;
     std::uint64_t totalWaitingTicks_ = 0;
+    std::array<std::uint64_t, kSimulationApproachCount>
+        generatedByApproach_{};
+    std::array<std::uint64_t, kSimulationApproachCount>
+        processedByApproach_{};
     std::size_t nextArrivalApproach_ = 0;
     std::size_t currentGreenApproach_ = 0;
 
