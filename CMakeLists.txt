@@ -11,7 +11,7 @@ option(BUILD_GUI "Build the Qt 6 Widgets desktop application" ON)
 add_library(tms_core
     src/TrafficManager.cpp
     src/TrafficSignal.cpp
-    src/gui_model.cpp
+    src/simulation_model.cpp
     src/input_validator.cpp
     src/config_controller.cpp
     src/queue_manager.cpp
