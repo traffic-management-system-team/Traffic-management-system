@@ -246,11 +246,41 @@ cmake --build build\release --config Release
 ctest --test-dir build\release -C Release --output-on-failure
 ```
 
+### 9.3 TC-10 input validation and safe configuration handling
+
+`input_validator_test` covers every configuration field's minimum and maximum
+boundaries, missing values, malformed and non-integer values, out-of-range
+values, field-specific diagnostic keys and error codes, and simultaneous
+errors. It also verifies that invalid submissions preserve the active
+configuration, backend rejection does not commit a candidate, and accepted
+and rejected submission counts are correct.
+
+`gui_model_test` exercises the controller-to-model application path. It checks
+successful application, invalid-input and model-rejection preservation,
+rejection while Running and Paused, and acceptance after reset. Existing
+pause/resume and reset regressions remain in the test.
+
+The Qt-independent Debug and Release commands above build and run all eight
+registered core tests, including `input_validator_test` and `gui_model_test`.
+
+#### Recorded verification — 6 November 2026
+
+| Configuration | Result |
+|---|---|
+| Debug | All eight core test executables compiled with GCC 6.3.0 and passed. |
+| Release | All eight core test executables compiled with GCC 6.3.0 and passed. |
+| CMake/CTest through CMake Tools | Blocked: the CMake Tools configure action reported `Unable to configure the project`; no CTest run is claimed. |
+
+The Debug and Release results above are direct GCC fallback runs using the
+same core source and test lists registered in `CMakeLists.txt`; they are not
+CMake/CTest results. The CMake commands in sections 9.1 and 9.2 remain the
+reproducible CMake verification path.
+
 For single-configuration generators, set `-DCMAKE_BUILD_TYPE=Debug` or
 `Release` at configure time and omit `--config` and `-C` from the build and
 CTest commands. The test checks remain active in Release builds.
 
-### 9.3 Build and launch the Qt 6 application
+### 9.4 Build and launch the Qt 6 application
 
 Install a C++17 compiler, CMake, and Qt 6 Widgets development files. If Qt is
 not in the default CMake package search path, set `CMAKE_PREFIX_PATH` to the
@@ -281,7 +311,7 @@ Reset drains every approach queue, removes queued vehicles from the
 `VehicleManager`, clears statistics and arrival records, restores North GREEN,
 and returns the simulation to Stopped. An explicit Start resumes ticks.
 
-### 9.4 CMake test targets
+### 9.5 CMake test targets
 
 CTest registers `vehicle_manager_test`, `queue_manager_test`,
 `queue_empty_safety_test`, `queue_length_test`, `traffic_signal_test`,

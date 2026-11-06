@@ -13,17 +13,28 @@ std::string shown(const std::string& s) {
 }
 
 void checkField(const char* name, const std::string& text, int lo, int hi,
-                int& target, std::vector<std::string>& errors) {
+                const char* field, int& target, ValidationResult& result) {
+    const bool missing = text.find_first_not_of(" \t") == std::string::npos;
     long long v = 0;
     if (!InputValidator::parseInt(text, v)) {
-        errors.push_back(std::string(name) + " must be a whole number between " +
-                         std::to_string(lo) + " and " + std::to_string(hi) +
-                         " (got '" + shown(text) + "').");
+        const std::string message =
+            std::string(name) + " must be a whole number between " +
+            std::to_string(lo) + " and " + std::to_string(hi) +
+            " (got '" + shown(text) + "').";
+        result.errors.push_back(message);
+        result.issues.push_back(ValidationIssue{
+            field, missing ? "MISSING_VALUE" : "INVALID_INTEGER", message
+        });
         return;
     }
     if (v < lo || v > hi) {
-        errors.push_back(std::string(name) + " must be between " + std::to_string(lo) +
-                         " and " + std::to_string(hi) + " (got " + std::to_string(v) + ").");
+        const std::string message =
+            std::string(name) + " must be between " + std::to_string(lo) +
+            " and " + std::to_string(hi) + " (got " + std::to_string(v) + ").";
+        result.errors.push_back(message);
+        result.issues.push_back(ValidationIssue{
+            field, "OUT_OF_RANGE", message
+        });
         return;
     }
     target = static_cast<int>(v);
@@ -65,11 +76,16 @@ ValidationResult InputValidator::validate(const RawConfig& raw) {
     using namespace SimLimits;
     ValidationResult r;
     SimConfig c;
-    checkField("Tick interval (ms)", raw.tickMs, kTickMsMin, kTickMsMax, c.tickMs, r.errors);
-    checkField("Green duration (ticks)", raw.greenTicks, kGreenMin, kGreenMax, c.greenTicks, r.errors);
-    checkField("Yellow duration (ticks)", raw.yellowTicks, kYellowMin, kYellowMax, c.yellowTicks, r.errors);
-    checkField("Arrival interval (ticks)", raw.arrivalInterval, kArrivalMin, kArrivalMax, c.arrivalInterval, r.errors);
-    checkField("Max queue length", raw.maxQueue, kMaxQueueMin, kMaxQueueMax, c.maxQueue, r.errors);
+    checkField("Tick interval (ms)", raw.tickMs, kTickMsMin, kTickMsMax,
+               "tickMs", c.tickMs, r);
+    checkField("Green duration (ticks)", raw.greenTicks, kGreenMin, kGreenMax,
+               "greenTicks", c.greenTicks, r);
+    checkField("Yellow duration (ticks)", raw.yellowTicks, kYellowMin, kYellowMax,
+               "yellowTicks", c.yellowTicks, r);
+    checkField("Arrival interval (ticks)", raw.arrivalInterval, kArrivalMin, kArrivalMax,
+               "arrivalInterval", c.arrivalInterval, r);
+    checkField("Max queue length", raw.maxQueue, kMaxQueueMin, kMaxQueueMax,
+               "maxQueue", c.maxQueue, r);
     r.ok = r.errors.empty();
     if (r.ok) r.config = c;
     return r;
