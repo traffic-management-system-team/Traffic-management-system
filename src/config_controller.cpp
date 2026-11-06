@@ -1,17 +1,26 @@
 #include "config_controller.h"
 
-bool ConfigController::submit(const RawConfig& raw, std::string& feedback) {
+bool ConfigController::submit(
+    const RawConfig& raw,
+    const std::function<bool(const SimConfig&)>& apply,
+    std::string& feedback) {
     const ValidationResult r = InputValidator::validate(raw);
     if (!r.ok) {
         feedback = r.summary();
         ++rejected_;
-        return false;               // nothing reaches the simulation
+        return false;
     }
-    if (!isInRange(r.config)) {     // defence in depth: never store out-of-range values
+    if (!isInRange(r.config)) {
         feedback = "Configuration rejected: values are outside the allowed limits.";
         ++rejected_;
         return false;
     }
+    if (!apply || !apply(r.config)) {
+        feedback = "The simulation rejected the configuration.";
+        ++rejected_;
+        return false;
+    }
+
     active_ = r.config;
     feedback = "Configuration accepted.";
     ++accepted_;

@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <functional>
 #include <iostream>
 #include <string>
 #include "config_controller.h"
@@ -23,6 +24,13 @@ static RawConfig with(int idx, const std::string& value) {
     return r;
 }
 
+static const char* fieldKey(int idx) {
+    static const char* fields[] = {
+        "tickMs", "greenTicks", "yellowTicks", "arrivalInterval", "maxQueue"
+    };
+    return fields[idx];
+}
+
 int main() {
     // ---- Defaults (approved specification) ----
     const SimConfig d;
@@ -42,6 +50,9 @@ int main() {
     RawConfig b = good(); b.greenTicks = "  15\t"; b.maxQueue = "+7";   // blanks and + tolerated
     r = InputValidator::validate(b);
     CHECK(r.ok && r.config.greenTicks == 15 && r.config.maxQueue == 7);
+    b.greenTicks = " \t\n+15\r\f\v";
+    r = InputValidator::validate(b);
+    CHECK(r.ok && r.config.greenTicks == 15);
 
     // ---- Boundary values for every field: min-1 / min / max / max+1 ----
     struct Bound { int lo, hi; };
@@ -67,29 +78,69 @@ int main() {
             r = InputValidator::validate(with(i, v));
             CHECK(!r.ok);
             CHECK(r.errors.size() == 1);
+            CHECK(r.issues.size() == 1);
+            CHECK(r.issues[0].field == fieldKey(i));
             CHECK(!r.summary().empty());
         }
+
+        r = InputValidator::validate(with(i, ""));
+        CHECK(r.issues[0].code == "MISSING_VALUE");
+        const char* whitespaceOnly[] = {
+            " ", "\t", "\r", "\n", "\f", "\v", " \t\r\n\f\v"
+        };
+        for (const char* value : whitespaceOnly) {
+            r = InputValidator::validate(with(i, value));
+            CHECK(!r.ok && r.issues.size() == 1);
+            CHECK(r.issues[0].field == fieldKey(i));
+            CHECK(r.issues[0].code == "MISSING_VALUE");
+        }
+        r = InputValidator::validate(with(i, "not-a-number"));
+        CHECK(r.issues[0].code == "INVALID_INTEGER");
+        r = InputValidator::validate(with(i, "5.5"));
+        CHECK(r.issues[0].code == "INVALID_INTEGER");
     }
+    CHECK(InputValidator::validate(with(0, "99")).issues[0].code == "OUT_OF_RANGE");
+    CHECK(InputValidator::validate(with(1, "61")).issues[0].code == "OUT_OF_RANGE");
+    CHECK(InputValidator::validate(with(2, "11")).issues[0].code == "OUT_OF_RANGE");
+    CHECK(InputValidator::validate(with(3, "21")).issues[0].code == "OUT_OF_RANGE");
+    CHECK(InputValidator::validate(with(4, "51")).issues[0].code == "OUT_OF_RANGE");
+
     RawConfig big = good(); big.greenTicks = std::string(100000, '9');
     r = InputValidator::validate(big);
     CHECK(!r.ok && r.summary().size() < 300);                 // echoed input is truncated
 
     r = InputValidator::validate(RawConfig{"a", "b", "c", "d", "e"});
     CHECK(!r.ok && r.errors.size() == 5);                     // all errors reported together
+    CHECK(r.issues.size() == 5);
+    for (int i = 0; i < 5; ++i) {
+        CHECK(r.issues[static_cast<std::size_t>(i)].field == fieldKey(i));
+        CHECK(r.issues[static_cast<std::size_t>(i)].code == "INVALID_INTEGER");
+    }
     CHECK(sameConfig(r.config, d));                           // invalid result carries no values
 
     // ---- ConfigController: last valid configuration is preserved ----
     ConfigController ctl;
     std::string fb;
-    CHECK(!ctl.submit(RawConfig{"abc", "10", "2", "3", "12"}, fb));
+    int appliedCandidates = 0;
+    const auto acceptCandidate = [&appliedCandidates](const SimConfig&) {
+        ++appliedCandidates;
+        return true;
+    };
+    CHECK(!ctl.submit(RawConfig{"abc", "10", "2", "3", "12"}, acceptCandidate, fb));
     CHECK(!fb.empty() && fb.find("Tick interval") != std::string::npos);
     CHECK(sameConfig(ctl.current(), d) && ctl.rejectedCount() == 1);   // defaults kept
+    CHECK(appliedCandidates == 0);
 
-    CHECK(ctl.submit(RawConfig{"2000", "20", "3", "4", "8"}, fb));
+    CHECK(ctl.submit(RawConfig{"2000", "20", "3", "4", "8"}, acceptCandidate, fb));
     const SimConfig lastValid = ctl.current();
     CHECK(lastValid.tickMs == 2000 && lastValid.greenTicks == 20 && lastValid.yellowTicks == 3);
     CHECK(lastValid.arrivalInterval == 4 && lastValid.maxQueue == 8);
     CHECK(ctl.acceptedCount() == 1);
+
+    const std::function<bool(const SimConfig&)> emptyApply;
+    CHECK(!ctl.submit(good(), emptyApply, fb));
+    CHECK(sameConfig(ctl.current(), lastValid));
+    CHECK(ctl.acceptedCount() == 1 && ctl.rejectedCount() == 2);
 
     // Many kinds of invalid submissions, including ones where most fields are valid.
     const RawConfig invalidSubmissions[] = {
@@ -101,17 +152,26 @@ int main() {
         RawConfig{"a", "b", "c", "d", "e"},           // everything malformed
         RawConfig{"1000", "10", "2", "3", std::string(5000, '1')}};
     unsigned long rejected = ctl.rejectedCount();
+    const int acceptedApplications = appliedCandidates;
     for (const RawConfig& bad2 : invalidSubmissions) {
-        CHECK(!ctl.submit(bad2, fb));
+        CHECK(!ctl.submit(bad2, acceptCandidate, fb));
         CHECK(!fb.empty());
         CHECK(sameConfig(ctl.current(), lastValid));  // active config never overwritten
         CHECK(ctl.rejectedCount() == ++rejected);
+        CHECK(appliedCandidates == acceptedApplications);
     }
     CHECK(ctl.acceptedCount() == 1);
     CHECK(isInRange(ctl.current()));
 
-    // A later valid submission replaces it normally.
-    CHECK(ctl.submit(good(), fb) && sameConfig(ctl.current(), d) && ctl.acceptedCount() == 2);
+    // A backend rejection is counted but cannot commit the candidate.
+    CHECK(!ctl.submit(good(), [](const SimConfig&) { return false; }, fb));
+    CHECK(sameConfig(ctl.current(), lastValid));
+    CHECK(ctl.acceptedCount() == 1 && ctl.rejectedCount() == rejected + 1);
+
+    // A later valid submission replaces it normally after backend acceptance.
+    CHECK(ctl.submit(good(), acceptCandidate, fb));
+    CHECK(sameConfig(ctl.current(), d) && ctl.acceptedCount() == 2);
+    CHECK(ctl.rejectedCount() == rejected + 1);
 
     std::cout << "TC-10 input validation passed.\n";
     return 0;

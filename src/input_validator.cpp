@@ -1,6 +1,7 @@
 #include "input_validator.h"
 
 namespace {
+constexpr const char* kAsciiWhitespace = " \t\n\r\f\v";
 
 std::string shown(const std::string& s) {
     std::string out;
@@ -13,17 +14,29 @@ std::string shown(const std::string& s) {
 }
 
 void checkField(const char* name, const std::string& text, int lo, int hi,
-                int& target, std::vector<std::string>& errors) {
+                const char* field, int& target, ValidationResult& result) {
+    const bool missing =
+        text.find_first_not_of(kAsciiWhitespace) == std::string::npos;
     long long v = 0;
     if (!InputValidator::parseInt(text, v)) {
-        errors.push_back(std::string(name) + " must be a whole number between " +
-                         std::to_string(lo) + " and " + std::to_string(hi) +
-                         " (got '" + shown(text) + "').");
+        const std::string message =
+            std::string(name) + " must be a whole number between " +
+            std::to_string(lo) + " and " + std::to_string(hi) +
+            " (got '" + shown(text) + "').";
+        result.errors.push_back(message);
+        result.issues.push_back(ValidationIssue{
+            field, missing ? "MISSING_VALUE" : "INVALID_INTEGER", message
+        });
         return;
     }
     if (v < lo || v > hi) {
-        errors.push_back(std::string(name) + " must be between " + std::to_string(lo) +
-                         " and " + std::to_string(hi) + " (got " + std::to_string(v) + ").");
+        const std::string message =
+            std::string(name) + " must be between " + std::to_string(lo) +
+            " and " + std::to_string(hi) + " (got " + std::to_string(v) + ").";
+        result.errors.push_back(message);
+        result.issues.push_back(ValidationIssue{
+            field, "OUT_OF_RANGE", message
+        });
         return;
     }
     target = static_cast<int>(v);
@@ -41,9 +54,9 @@ std::string ValidationResult::summary() const {
 }
 
 bool InputValidator::parseInt(const std::string& text, long long& out) {
-    std::size_t b = 0, e = text.size();
-    while (b < e && (text[b] == ' ' || text[b] == '\t')) ++b;
-    while (e > b && (text[e - 1] == ' ' || text[e - 1] == '\t')) --e;
+    std::size_t b = text.find_first_not_of(kAsciiWhitespace);
+    if (b == std::string::npos) return false;
+    const std::size_t e = text.find_last_not_of(kAsciiWhitespace) + 1;
     if (b == e || e - b > 12) return false;          // empty or absurdly long
 
     bool neg = false;
@@ -65,11 +78,16 @@ ValidationResult InputValidator::validate(const RawConfig& raw) {
     using namespace SimLimits;
     ValidationResult r;
     SimConfig c;
-    checkField("Tick interval (ms)", raw.tickMs, kTickMsMin, kTickMsMax, c.tickMs, r.errors);
-    checkField("Green duration (ticks)", raw.greenTicks, kGreenMin, kGreenMax, c.greenTicks, r.errors);
-    checkField("Yellow duration (ticks)", raw.yellowTicks, kYellowMin, kYellowMax, c.yellowTicks, r.errors);
-    checkField("Arrival interval (ticks)", raw.arrivalInterval, kArrivalMin, kArrivalMax, c.arrivalInterval, r.errors);
-    checkField("Max queue length", raw.maxQueue, kMaxQueueMin, kMaxQueueMax, c.maxQueue, r.errors);
+    checkField("Tick interval (ms)", raw.tickMs, kTickMsMin, kTickMsMax,
+               "tickMs", c.tickMs, r);
+    checkField("Green duration (ticks)", raw.greenTicks, kGreenMin, kGreenMax,
+               "greenTicks", c.greenTicks, r);
+    checkField("Yellow duration (ticks)", raw.yellowTicks, kYellowMin, kYellowMax,
+               "yellowTicks", c.yellowTicks, r);
+    checkField("Arrival interval (ticks)", raw.arrivalInterval, kArrivalMin, kArrivalMax,
+               "arrivalInterval", c.arrivalInterval, r);
+    checkField("Max queue length", raw.maxQueue, kMaxQueueMin, kMaxQueueMax,
+               "maxQueue", c.maxQueue, r);
     r.ok = r.errors.empty();
     if (r.ok) r.config = c;
     return r;

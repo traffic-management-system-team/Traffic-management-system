@@ -1,19 +1,21 @@
 #ifndef CONFIG_CONTROLLER_H
 #define CONFIG_CONTROLLER_H
 
+#include <functional>
 #include <string>
 #include "input_validator.h"
 #include "sim_config.h"
 
 // Control-flow entry point for user-entered configuration (FR-10, SEC-01).
-// UI/CLI code calls submit(); simulation modules only ever read current(),
-// which always holds a validated SimConfig. Parsing never happens in the simulation.
+// UI/CLI code submits raw input with an application callback; current() changes
+// only after that callback accepts a validated SimConfig.
 class ConfigController {
 public:
-    // Validates raw text. On success the active config is replaced and true is
-    // returned. On failure the active config is left unchanged and `feedback`
-    // contains clear messages for the user.
-    bool submit(const RawConfig& raw, std::string& feedback);
+    // Validates raw text and asks the caller to apply the complete candidate.
+    // The active config changes only when the caller accepts it.
+    bool submit(const RawConfig& raw,
+                const std::function<bool(const SimConfig&)>& apply,
+                std::string& feedback);
 
     const SimConfig& current() const { return active_; }
     unsigned long acceptedCount() const { return accepted_; }

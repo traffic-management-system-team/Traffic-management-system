@@ -1,8 +1,10 @@
 #include "gui_model.h"
+#include "config_controller.h"
 #include "simulation_model.h"
 
 #include <cstdlib>
 #include <iostream>
+#include <string>
 
 #define CHECK(condition) do { \
     if (!(condition)) { \
@@ -13,6 +15,14 @@
 } while (false)
 
 namespace {
+bool sameConfig(const SimConfig& a, const SimConfig& b) {
+    return a.tickMs == b.tickMs &&
+           a.greenTicks == b.greenTicks &&
+           a.yellowTicks == b.yellowTicks &&
+           a.arrivalInterval == b.arrivalInterval &&
+           a.maxQueue == b.maxQueue;
+}
+
 void runTicks(SimModel& model, int count) {
     for (int i = 0; i < count; ++i) {
         CHECK(model.tick());
@@ -558,11 +568,89 @@ void testConfigurationChanges() {
     invalidConfig.maxQueue = 0;
 
     CHECK(!model.setConfig(invalidConfig));
+    CHECK(sameConfig(model.config(), config));
 
     model.start();
     runTicks(model, 1);
 
     CHECK(!model.setConfig(config));
+    CHECK(sameConfig(model.config(), config));
+}
+
+void testConfigurationControllerWithModel() {
+    ConfigController controller;
+    SimModel model;
+    const SimConfig defaults;
+    const RawConfig acceptedInput{"2000", "5", "3", "4", "8"};
+    const RawConfig nextInput{"3000", "6", "4", "5", "9"};
+    std::string feedback;
+
+    CHECK(controller.submit(
+        acceptedInput,
+        [&model](const SimConfig& candidate) {
+            return model.setConfig(candidate);
+        },
+        feedback
+    ));
+    const SimConfig accepted = controller.current();
+    CHECK(sameConfig(accepted, model.config()));
+    CHECK(accepted.tickMs == 2000 && accepted.greenTicks == 5);
+    CHECK(controller.acceptedCount() == 1 && controller.rejectedCount() == 0);
+
+    CHECK(!controller.submit(
+        RawConfig{"2000", "0", "3", "4", "8"},
+        [&model](const SimConfig& candidate) {
+            return model.setConfig(candidate);
+        },
+        feedback
+    ));
+    CHECK(sameConfig(controller.current(), accepted));
+    CHECK(sameConfig(model.config(), accepted));
+    CHECK(controller.acceptedCount() == 1 && controller.rejectedCount() == 1);
+
+    model.start();
+    CHECK(!controller.submit(
+        nextInput,
+        [&model](const SimConfig& candidate) {
+            return model.setConfig(candidate);
+        },
+        feedback
+    ));
+    CHECK(model.state() == SimModel::State::Running);
+    CHECK(sameConfig(controller.current(), accepted));
+    CHECK(sameConfig(model.config(), accepted));
+    CHECK(controller.acceptedCount() == 1 && controller.rejectedCount() == 2);
+
+    runTicks(model, 1);
+    model.togglePause();
+    CHECK(model.state() == SimModel::State::Paused);
+    CHECK(!controller.submit(
+        nextInput,
+        [&model](const SimConfig& candidate) {
+            return model.setConfig(candidate);
+        },
+        feedback
+    ));
+    CHECK(sameConfig(controller.current(), accepted));
+    CHECK(sameConfig(model.config(), accepted));
+    CHECK(controller.acceptedCount() == 1 && controller.rejectedCount() == 3);
+
+    model.reset();
+    CHECK(model.state() == SimModel::State::Stopped);
+    CHECK(model.tickCount() == 0);
+    CHECK(sameConfig(model.config(), accepted));
+    CHECK(controller.submit(
+        nextInput,
+        [&model](const SimConfig& candidate) {
+            return model.setConfig(candidate);
+        },
+        feedback
+    ));
+
+    CHECK(sameConfig(controller.current(), model.config()));
+    CHECK(model.config().tickMs == 3000 && model.config().greenTicks == 6);
+    CHECK(controller.acceptedCount() == 2 && controller.rejectedCount() == 3);
+    CHECK(!sameConfig(controller.current(), defaults));
 }
 
 void testInvalidRoads() {
@@ -585,5 +673,6 @@ int main() {
     testCustomConfigurationTiming();
     testMaximumQueueCapacity();
     testConfigurationChanges();
+    testConfigurationControllerWithModel();
     testInvalidRoads();
 }

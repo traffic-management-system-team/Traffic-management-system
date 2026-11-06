@@ -198,20 +198,6 @@ public:
 
 private:
     void applyConfiguration() {
-        if (model_.state() == SimModel::State::Paused) {
-            configFeedbackLabel_->setText(
-                "Resume and reset the simulation before applying settings."
-            );
-            return;
-        }
-        if (model_.state() != SimModel::State::Stopped ||
-            model_.tickCount() != 0) {
-            configFeedbackLabel_->setText(
-                "Stop and reset the simulation before applying settings."
-            );
-            return;
-        }
-
         RawConfig raw;
         raw.tickMs = tickMsInput_->text().toStdString();
         raw.greenTicks = greenTicksInput_->text().toStdString();
@@ -220,27 +206,25 @@ private:
         raw.maxQueue = maxQueueInput_->text().toStdString();
 
         std::string feedback;
-        if (!configController_.submit(raw, feedback)) {
+        bool modelRejected = false;
+        const bool accepted = configController_.submit(
+            raw,
+            [this, &modelRejected](const SimConfig& candidate) {
+                const bool applied = model_.setConfig(candidate);
+                modelRejected = !applied;
+                return applied;
+            },
+            feedback
+        );
+        if (!accepted) {
+            if (modelRejected && model_.state() == SimModel::State::Paused) {
+                feedback = "Resume and reset the simulation before applying settings.";
+            } else if (modelRejected &&
+                       (model_.state() != SimModel::State::Stopped ||
+                        model_.tickCount() != 0)) {
+                feedback = "Stop and reset the simulation before applying settings.";
+            }
             configFeedbackLabel_->setText(QString::fromStdString(feedback));
-            return;
-        }
-
-        const SimConfig previousConfig = model_.config();
-        if (!model_.setConfig(configController_.current())) {
-            std::string ignoredFeedback;
-            configController_.submit(
-                RawConfig{
-                    std::to_string(previousConfig.tickMs),
-                    std::to_string(previousConfig.greenTicks),
-                    std::to_string(previousConfig.yellowTicks),
-                    std::to_string(previousConfig.arrivalInterval),
-                    std::to_string(previousConfig.maxQueue)
-                },
-                ignoredFeedback
-            );
-            configFeedbackLabel_->setText(
-                "The simulation rejected the configuration."
-            );
             return;
         }
 

@@ -14,10 +14,19 @@ struct RawConfig {
     std::string maxQueue;
 };
 
+// Stable diagnostic payload; field keys match SimConfig members and codes are
+// uppercase identifiers.
+struct ValidationIssue {
+    std::string field;
+    std::string code;
+    std::string message;
+};
+
 struct ValidationResult {
     bool ok = false;
     SimConfig config;                 // meaningful only when ok == true
     std::vector<std::string> errors;  // one clear message per invalid field
+    std::vector<ValidationIssue> issues;
 
     std::string summary() const;      // all errors joined, for display to the user
 };
