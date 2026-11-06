@@ -1,4 +1,5 @@
 #include <cstdlib>
+#include <functional>
 #include <iostream>
 #include <string>
 #include "config_controller.h"
@@ -49,6 +50,9 @@ int main() {
     RawConfig b = good(); b.greenTicks = "  15\t"; b.maxQueue = "+7";   // blanks and + tolerated
     r = InputValidator::validate(b);
     CHECK(r.ok && r.config.greenTicks == 15 && r.config.maxQueue == 7);
+    b.greenTicks = " \t\n+15\r\f\v";
+    r = InputValidator::validate(b);
+    CHECK(r.ok && r.config.greenTicks == 15);
 
     // ---- Boundary values for every field: min-1 / min / max / max+1 ----
     struct Bound { int lo, hi; };
@@ -81,6 +85,15 @@ int main() {
 
         r = InputValidator::validate(with(i, ""));
         CHECK(r.issues[0].code == "MISSING_VALUE");
+        const char* whitespaceOnly[] = {
+            " ", "\t", "\r", "\n", "\f", "\v", " \t\r\n\f\v"
+        };
+        for (const char* value : whitespaceOnly) {
+            r = InputValidator::validate(with(i, value));
+            CHECK(!r.ok && r.issues.size() == 1);
+            CHECK(r.issues[0].field == fieldKey(i));
+            CHECK(r.issues[0].code == "MISSING_VALUE");
+        }
         r = InputValidator::validate(with(i, "not-a-number"));
         CHECK(r.issues[0].code == "INVALID_INTEGER");
         r = InputValidator::validate(with(i, "5.5"));
@@ -123,6 +136,11 @@ int main() {
     CHECK(lastValid.tickMs == 2000 && lastValid.greenTicks == 20 && lastValid.yellowTicks == 3);
     CHECK(lastValid.arrivalInterval == 4 && lastValid.maxQueue == 8);
     CHECK(ctl.acceptedCount() == 1);
+
+    const std::function<bool(const SimConfig&)> emptyApply;
+    CHECK(!ctl.submit(good(), emptyApply, fb));
+    CHECK(sameConfig(ctl.current(), lastValid));
+    CHECK(ctl.acceptedCount() == 1 && ctl.rejectedCount() == 2);
 
     // Many kinds of invalid submissions, including ones where most fields are valid.
     const RawConfig invalidSubmissions[] = {

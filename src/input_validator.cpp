@@ -1,6 +1,7 @@
 #include "input_validator.h"
 
 namespace {
+constexpr const char* kAsciiWhitespace = " \t\n\r\f\v";
 
 std::string shown(const std::string& s) {
     std::string out;
@@ -14,7 +15,8 @@ std::string shown(const std::string& s) {
 
 void checkField(const char* name, const std::string& text, int lo, int hi,
                 const char* field, int& target, ValidationResult& result) {
-    const bool missing = text.find_first_not_of(" \t") == std::string::npos;
+    const bool missing =
+        text.find_first_not_of(kAsciiWhitespace) == std::string::npos;
     long long v = 0;
     if (!InputValidator::parseInt(text, v)) {
         const std::string message =
@@ -52,9 +54,9 @@ std::string ValidationResult::summary() const {
 }
 
 bool InputValidator::parseInt(const std::string& text, long long& out) {
-    std::size_t b = 0, e = text.size();
-    while (b < e && (text[b] == ' ' || text[b] == '\t')) ++b;
-    while (e > b && (text[e - 1] == ' ' || text[e - 1] == '\t')) --e;
+    std::size_t b = text.find_first_not_of(kAsciiWhitespace);
+    if (b == std::string::npos) return false;
+    const std::size_t e = text.find_last_not_of(kAsciiWhitespace) + 1;
     if (b == e || e - b > 12) return false;          // empty or absurdly long
 
     bool neg = false;
