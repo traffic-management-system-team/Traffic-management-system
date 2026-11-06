@@ -35,7 +35,7 @@ The simulation or integration layer is responsible for deciding when signal tran
 
 If a transition is rejected, the integration layer must handle the failure and must not assume that the signal state changed.
 
-The GUI-facing simulation model in `src/gui_model.cpp` owns signal phase
+The shared simulation model in `src/simulation_model.cpp` owns signal phase
 timing. The GUI timer interval defaults to 1000 ms and is configurable; signal
 durations use logical ticks, with defaults of 10 GREEN ticks and 2 YELLOW ticks.
 The model rotates North → South → East → West, starts and resets with North
