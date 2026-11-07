@@ -12,6 +12,7 @@
 #include <cstddef>
 #include <cstdint>
 #include <unordered_map>
+#include <vector>
 
 class SimModel {
 public:
@@ -24,6 +25,7 @@ public:
     State state() const noexcept { return state_; }
     Signal signal(int road) const;
     std::size_t queueLength(int road) const;
+    std::vector<Vehicle> queuedVehicles(int road) const;
     std::uint64_t tickCount() const noexcept { return ticks_; }
     std::uint64_t generatedCount() const noexcept;
     std::uint64_t processedCount() const noexcept;

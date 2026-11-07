@@ -7,6 +7,7 @@
 #include <queue>
 #include <string>
 #include <unordered_map>
+#include <vector>
 
 class QueueManager {
 public:
@@ -20,6 +21,9 @@ public:
     bool dequeue(const std::string& roadId, Vehicle& vehicle);
     bool isEmpty(const std::string& roadId) const;
     std::size_t getSize(const std::string& roadId) const;
+
+    // Returns an independent copy of the queue in FIFO order.
+    std::vector<Vehicle> snapshot(const std::string& roadId) const;
 
 private:
     std::unordered_map<std::string, std::queue<Vehicle>> roadQueues_;
