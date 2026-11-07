@@ -58,3 +58,24 @@ std::size_t QueueManager::getSize(const std::string& roadId) const {
 
     return it->second.size();
 }
+std::vector<Vehicle> QueueManager::snapshot(
+    const std::string& roadId
+) const {
+    std::vector<Vehicle> vehicles;
+
+    auto it = roadQueues_.find(roadId);
+    if (it == roadQueues_.end()) {
+        return vehicles;
+    }
+
+    auto queueCopy = it->second;
+
+    vehicles.reserve(queueCopy.size());
+
+    while (!queueCopy.empty()) {
+        vehicles.push_back(queueCopy.front());
+        queueCopy.pop();
+    }
+
+    return vehicles;
+}

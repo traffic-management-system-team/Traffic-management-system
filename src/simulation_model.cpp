@@ -255,3 +255,13 @@ void SimModel::advanceSignalPhase() {
         phaseElapsedTicks_ = 0;
     }
 }
+
+std::vector<Vehicle> SimModel::queuedVehicles(int road) const {
+    if (road < 0 || road >= kRoads) {
+        return {};
+    }
+
+    return queueManager_.snapshot(
+        kRoadIds[static_cast<std::size_t>(road)]
+    );
+}
