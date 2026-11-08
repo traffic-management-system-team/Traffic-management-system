@@ -6,17 +6,22 @@
 
 #include <crow.h>
 
+class SimulationService;
+
 class SimulationHttpAdapter {
 public:
     SimulationHttpAdapter(
         SimulationControlApi& api,
+        SimulationService& service,
         const SimulationHttpOriginPolicy& originPolicy
     )
-        : api_(api), originPolicy_(originPolicy) {}
+        : api_(api), service_(service), originPolicy_(originPolicy) {}
 
     void registerRoutes(crow::SimpleApp& app);
 
 private:
+    crow::response stateResponse() const;
+
     crow::response handle(
         const crow::request& request,
         const char* method,
@@ -24,6 +29,7 @@ private:
     ) const;
 
     SimulationControlApi& api_;
+    SimulationService& service_;
     const SimulationHttpOriginPolicy& originPolicy_;
 };
 

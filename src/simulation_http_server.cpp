@@ -3,7 +3,6 @@
 #include "simulation_control_api.h"
 #include "simulation_http_adapter.h"
 #include "simulation_http_response.h"
-#include "simulation_state_serializer.h"
 
 #include <chrono>
 #include <csignal>
@@ -15,25 +14,6 @@
 #include <thread>
 #include <utility>
 
-#define TMS_ALL_HTTP_METHODS \
-    crow::HTTPMethod::Delete, crow::HTTPMethod::Get, \
-    crow::HTTPMethod::Head, crow::HTTPMethod::Post, \
-    crow::HTTPMethod::Put, crow::HTTPMethod::Connect, \
-    crow::HTTPMethod::Options, crow::HTTPMethod::Trace, \
-    crow::HTTPMethod::Patch, crow::HTTPMethod::Purge, \
-    crow::HTTPMethod::Copy, crow::HTTPMethod::Lock, \
-    crow::HTTPMethod::MkCol, crow::HTTPMethod::Move, \
-    crow::HTTPMethod::Propfind, crow::HTTPMethod::Proppatch, \
-    crow::HTTPMethod::Search, crow::HTTPMethod::Unlock, \
-    crow::HTTPMethod::Bind, crow::HTTPMethod::Rebind, \
-    crow::HTTPMethod::Unbind, crow::HTTPMethod::Acl, \
-    crow::HTTPMethod::Report, crow::HTTPMethod::MkActivity, \
-    crow::HTTPMethod::Checkout, crow::HTTPMethod::Merge, \
-    crow::HTTPMethod::MSearch, crow::HTTPMethod::Notify, \
-    crow::HTTPMethod::Subscribe, crow::HTTPMethod::Unsubscribe, \
-    crow::HTTPMethod::MkCalendar, crow::HTTPMethod::Link, \
-    crow::HTTPMethod::Unlink, crow::HTTPMethod::Source
-
 class SimulationHttpServer::Impl {
 public:
     Impl(
@@ -44,26 +24,11 @@ public:
     )
         : service_(service),
           api_(service),
-          adapter_(api_, originPolicy_),
+          adapter_(api_, service_, originPolicy_),
           bindAddress_(std::move(bindAddress)),
           requestedPort_(requestedPort),
           concurrency_(concurrency) {
         adapter_.registerRoutes(app_);
-        CROW_ROUTE(app_, "/api/simulation/state")
-            .methods(TMS_ALL_HTTP_METHODS)
-        ([this](const crow::request& request) {
-            if (originPolicy_.isCrossOriginBrowserRequest(request)) {
-                return makeJsonErrorResponse(
-                    403,
-                    "CROSS_ORIGIN_REQUEST",
-                    "Cross-origin browser requests are not allowed."
-                );
-            }
-            if (crow::method_name(request.method) != "GET") {
-                return makeJsonMethodNotAllowedResponse("GET");
-            }
-            return stateResponse();
-        });
     }
 
     ~Impl() {
@@ -206,31 +171,6 @@ public:
     }
 
 private:
-    crow::response stateResponse() const {
-        try {
-            return makeJsonSuccessResponse(serializeSimulationStateData(
-                service_.getSnapshot()
-            ));
-        } catch (const std::exception& exception) {
-            std::fprintf(
-                stderr,
-                "SimulationHttpServer: state request failed: %s\n",
-                exception.what()
-            );
-        } catch (...) {
-            std::fprintf(
-                stderr,
-                "SimulationHttpServer: state request failed unexpectedly.\n"
-            );
-        }
-
-        return makeJsonErrorResponse(
-            500,
-            "INTERNAL_SERVER_ERROR",
-            "An unexpected internal error occurred."
-        );
-    }
-
     bool finishWorkerLocked(std::string& error, const char* failureMessage) {
         if (!worker_.valid()) {
             running_ = false;
@@ -278,7 +218,6 @@ private:
     const std::chrono::milliseconds startupPollInterval_{25};
 };
 
-#undef TMS_ALL_HTTP_METHODS
 
 SimulationHttpServer::SimulationHttpServer(
     SimulationService& service,

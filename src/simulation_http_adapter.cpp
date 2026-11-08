@@ -1,9 +1,12 @@
 #include "simulation_http_adapter.h"
 
 #include "simulation_http_response.h"
+#include "simulation_service.h"
+#include "simulation_state_serializer.h"
 
 #include <algorithm>
 #include <cstdint>
+#include <cstdio>
 #include <exception>
 #include <limits>
 #include <string>
@@ -175,9 +178,52 @@ void SimulationHttpAdapter::registerRoutes(crow::SimpleApp& app) {
     ([this](const crow::request& request) {
         return handle(request, "PUT", "/api/simulation/config");
     });
+    CROW_ROUTE(app, "/api/simulation/state")
+        .methods(TMS_ALL_HTTP_METHODS)
+    ([this](const crow::request& request) {
+        if (originPolicy_.isCrossOriginBrowserRequest(request)) {
+            return makeJsonErrorResponse(
+                403,
+                "CROSS_ORIGIN_REQUEST",
+                "Cross-origin browser requests are not allowed."
+            );
+        }
+
+        if (crow::method_name(request.method) != "GET") {
+            return makeJsonMethodNotAllowedResponse("GET");
+        }
+
+        return stateResponse();
+    });
+
 }
 
 #undef TMS_ALL_HTTP_METHODS
+
+crow::response SimulationHttpAdapter::stateResponse() const {
+    try {
+        return makeJsonSuccessResponse(
+            serializeSimulationStateData(service_.getSnapshot())
+        );
+    } catch (const std::exception& exception) {
+        std::fprintf(
+            stderr,
+            "SimulationHttpAdapter: state request failed: %s\n",
+            exception.what()
+        );
+    } catch (...) {
+        std::fprintf(
+            stderr,
+            "SimulationHttpAdapter: state request failed unexpectedly.\n"
+        );
+    }
+
+    return makeJsonErrorResponse(
+        500,
+        "INTERNAL_SERVER_ERROR",
+        "An unexpected internal error occurred."
+    );
+}
 
 crow::response SimulationHttpAdapter::handle(
     const crow::request& request,
