@@ -188,7 +188,10 @@ Success (`200 OK`):
 
 - The handler converts the integer JSON fields to the existing `RawConfig` representation as required by `SimulationService::setConfig()` and delegates validation/application to the service's existing `InputValidator`/`ConfigController` path.
 - Do not duplicate parsing bounds or validation rules in route handlers. The HTTP boundary must still reject malformed JSON, missing fields, wrong JSON types, and values that cannot be safely represented by the existing configuration input type.
-- If validation/application fails, return `400 Bad Request`, include the validator's field-specific issues in `error.details` when available, and leave the previously accepted configuration unchanged.
+- If a field is missing, has the wrong JSON type, cannot be represented safely, or fails `InputValidator` validation, return `400 Bad Request`. Include field-specific validator issues in `error.details` when available.
+- If all fields are valid but `SimulationService::setConfig()` rejects the configuration because the simulation is not in a state that permits configuration changes, return `409 Conflict` with error code `INVALID_STATE`.
+- Configuration changes are accepted only while the simulation is stopped and before simulation activity has occurred. After activity, reset the simulation before applying a new configuration.
+- A rejected configuration must leave the previously accepted configuration unchanged.
 - On success, return the actual accepted configuration. The service is responsible for applying it consistently, including the scheduler interval.
 
 ## 3. HTTP status-code mapping
@@ -197,7 +200,7 @@ Success (`200 OK`):
 |---|---|
 | `200 OK` | Operation succeeded |
 | `400 Bad Request` | Malformed JSON, missing required field, wrong field type, or configuration validation failure |
-| `409 Conflict` | Start/pause/resume transition is invalid for the current simulation state |
+| `409 Conflict` | Invalid start/pause/resume transition, or valid configuration rejected by the service's current simulation state |
 | `500 Internal Server Error` | Unexpected server-side failure; do not expose internal exception details |
 
 Unexpected errors should use the common error envelope with a stable public code such as `INTERNAL_ERROR` and a generic message. Do not return exception text, stack traces, filesystem paths, or other internal diagnostics.
@@ -219,7 +222,7 @@ Unexpected errors should use the common error envelope with a stable public code
 
 Issue #9 owns the Crow HTTP host, server startup/shutdown, and route registration. Issue #28 owns the five control/configuration handler behaviours and this contract. The handler module should be independently usable by the host integration without taking ownership of server lifecycle.
 
-The agreed decisions above do not specify whether configuration changes are allowed in every simulation state. The handler must follow the finalized `SimulationService` behaviour and obtain explicit team agreement before imposing an additional state restriction at the HTTP layer.
+The implementation follows the existing `SimulationService` and model configuration rules. Configuration changes are accepted only while stopped and before simulation activity has occurred. A valid configuration rejected by the service for state-related reasons returns `409 Conflict`; invalid configuration input returns `400 Bad Request`. Reset restores the model to a state in which configuration changes can be accepted.
 
 ## 6. Source-of-truth interfaces
 
