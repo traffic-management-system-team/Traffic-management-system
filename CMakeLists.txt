@@ -22,6 +22,7 @@ add_library(tms_core
     src/simulation_service.cpp
     src/input_validator.cpp
     src/config_controller.cpp
+    src/simulation_control_api.cpp
     src/queue_manager.cpp
     src/vehicle.cpp
     src/vehicle_manager.cpp
@@ -63,4 +64,5 @@ if(BUILD_TESTING)
     add_tms_test(gui_model_test tests/gui_model_test.cpp)
     add_tms_test(input_validator_test tests/input_validator_test.cpp)
     add_tms_test(simulation_service_test tests/simulation_service_test.cpp)
+    add_tms_test(simulation_control_api_test tests/simulation_control_api_test.cpp)
 endif()
