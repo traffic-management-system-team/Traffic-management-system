@@ -66,16 +66,18 @@ sources.
 
 `BUILD_API_SERVER=OFF` skips Crow and Asio entirely, leaving `tms_core` and its
 tests buildable without the HTTP dependencies. Qt is not an active dependency
-or build target. The browser frontend is a separate pending component; this
-repository does not claim to implement it.
+or build target. The selected browser frontend stack is React, TypeScript, Vite and Tailwind CSS.
+It remains unimplemented; this repository does not claim to provide browser
+functionality.
 
 ## Browser deployment
 
 The recommended initial deployment serves the browser frontend and REST backend
 through the same public origin. Put a reverse proxy in front of both: serve the
 frontend from that origin and route `/api/` requests to the Crow backend. The
-browser calls the existing `/api/...` endpoints on the shared origin; the
-frontend is not implemented in this repository.
+browser calls the existing API endpoints on the shared origin. The selected
+React, TypeScript, Vite and Tailwind CSS frontend is not implemented in this
+repository.
 
 The backend rejects cross-origin browser requests, and this policy is not
 weakened here. For a TLS-terminating reverse proxy, set the backend process
@@ -247,14 +249,17 @@ Validation on Windows with Visual Studio 18 / MSVC 19.51.36256 and Windows SDK
 | Debug, `BUILD_API_SERVER=OFF` | Passed | 10/10 passed |
 
 The current CMake configuration has no Qt package lookup or desktop GUI target.
-The browser frontend remains pending and is not included in these backend
-builds.
+The selected React, TypeScript, Vite and Tailwind CSS frontend remains
+unimplemented and is not included in these backend builds.
 
-The API server was also launched independently on `127.0.0.1:18080` and tested
-with live HTTP requests for initial state, start/pause/resume/reset, valid and
-invalid configuration, malformed JSON, wrong scalar types, missing fields, and
-invalid lifecycle transitions. All checks passed. CTest exercised explicit
-server shutdown and active-request synchronization. The build used Visual
-Studio 18 2026 / MSVC 19.51.36256; cached local copies of the pinned Crow,
-Asio, and nlohmann-json sources were supplied to the fresh integration
-build directories to avoid re-fetching dependencies.
+The saved CTest records do not contain a source commit ID or source hash. They
+cannot conclusively identify the exact source revision or prove whether all
+then-current uncommitted changes were included. These are local test records,
+not Issue #10 acceptance results. No tests were rerun during Issue #12
+documentation preparation.
+
+A prior verification note reports an independent API-server launch and live
+HTTP requests for initial state, lifecycle operations, configuration and error
+handling. The underlying run record is not present in this worktree, and no
+source revision is attached to the report. Treat it as an unverified historical
+report, not revision-bound evidence or Issue #10 acceptance.
