@@ -101,6 +101,7 @@ public:
 
         SimulationSnapshot snapshot;
         snapshot.state = model_.state();
+        snapshot.activeApproach = model_.activeApproach();
         snapshot.statistics = model_.statistics();
         snapshot.config = model_.config();
 

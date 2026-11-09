@@ -13,7 +13,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(Threads REQUIRED)
 
-option(BUILD_GUI "Build the Qt 6 Widgets desktop application" ON)
+option(BUILD_API_SERVER "Build the Crow-based REST API server" ON)
+set(TMS_HTTP_MAX_REQUEST_BODY_BYTES 65536)
 
 add_library(tms_core
     src/TrafficManager.cpp
@@ -30,16 +31,90 @@ add_library(tms_core
 target_include_directories(tms_core PUBLIC include src)
 target_link_libraries(tms_core PUBLIC Threads::Threads)
 
+if(BUILD_API_SERVER)
+    include(FetchContent)
+    find_package(Git REQUIRED)
+
+    set(JSON_BuildTests OFF CACHE INTERNAL "")
+    set(JSON_Install OFF CACHE INTERNAL "")
+    FetchContent_Declare(
+        nlohmann_json
+        GIT_REPOSITORY https://github.com/nlohmann/json.git
+        GIT_TAG 55f93686c01528224f448c19128836e7df245f72
+        GIT_SHALLOW FALSE
+    )
+    FetchContent_MakeAvailable(nlohmann_json)
+
+    FetchContent_Declare(
+        asio
+        GIT_REPOSITORY https://github.com/chriskohlhoff/asio.git
+        GIT_TAG 231cb29bab30f82712fcd54faaea42424cc6e710
+        GIT_SHALLOW FALSE
+    )
+    FetchContent_MakeAvailable(asio)
+    set(ASIO_INCLUDE_DIR "${asio_SOURCE_DIR}/asio/include")
+
+    set(CROW_BUILD_EXAMPLES OFF)
+    set(CROW_BUILD_TESTS OFF)
+    set(CROW_BUILD_FUZZER OFF)
+    set(CROW_INSTALL OFF)
+    set(CROW_USE_BOOST OFF)
+    set(CROW_ENABLE_SSL OFF)
+    set(CROW_ENABLE_COMPRESSION OFF)
+
+    FetchContent_Declare(
+        crow
+        GIT_REPOSITORY https://github.com/CrowCpp/Crow.git
+        GIT_TAG fcf0c360b15fc245d884c71340b08ac20403ba36
+        GIT_SHALLOW FALSE
+        PATCH_COMMAND
+            "${GIT_EXECUTABLE}" apply --whitespace=nowarn
+            "${CMAKE_CURRENT_LIST_DIR}/patches/crow-request-body-limit.patch"
+    )
+    FetchContent_MakeAvailable(crow)
+
+    add_library(tms_http
+        src/simulation_http_adapter.cpp
+        src/simulation_http_response.cpp
+        src/simulation_http_server.cpp
+    )
+    target_include_directories(tms_http PUBLIC include)
+    target_link_libraries(tms_http PUBLIC tms_core Crow::Crow)
+    target_compile_definitions(tms_http PUBLIC
+        TMS_HTTP_MAX_REQUEST_BODY_BYTES=${TMS_HTTP_MAX_REQUEST_BODY_BYTES}
+    )
+
+    if(MSVC)
+        target_compile_definitions(tms_http PUBLIC _WIN32_WINNT=0x0601)
+        target_compile_options(tms_http PRIVATE /W4)
+    else()
+        target_compile_options(tms_http PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+
+    add_executable(tms_api_server src/api_server_main.cpp)
+    target_link_libraries(tms_api_server PRIVATE tms_http)
+
+    add_library(tms_state_serializer
+        src/simulation_state_serializer.cpp
+    )
+    target_include_directories(tms_state_serializer PUBLIC include)
+    target_link_libraries(tms_state_serializer
+        PUBLIC tms_core nlohmann_json::nlohmann_json
+    )
+
+    if(MSVC)
+        target_compile_options(tms_state_serializer PRIVATE /W4)
+    else()
+        target_compile_options(tms_state_serializer PRIVATE -Wall -Wextra -Wpedantic)
+    endif()
+
+    target_link_libraries(tms_http PRIVATE tms_state_serializer)
+endif()
+
 if(MSVC)
     target_compile_options(tms_core PRIVATE /W4)
 else()
     target_compile_options(tms_core PRIVATE -Wall -Wextra -Wpedantic)
-endif()
-
-if(BUILD_GUI)
-    find_package(Qt6 REQUIRED COMPONENTS Widgets)
-    add_executable(TrafficManagementSystem WIN32 src/gui_main.cpp)
-    target_link_libraries(TrafficManagementSystem PRIVATE tms_core Qt6::Widgets)
 endif()
 
 include(CTest)
@@ -65,4 +140,18 @@ if(BUILD_TESTING)
     add_tms_test(input_validator_test tests/input_validator_test.cpp)
     add_tms_test(simulation_service_test tests/simulation_service_test.cpp)
     add_tms_test(simulation_control_api_test tests/simulation_control_api_test.cpp)
+
+    if(BUILD_API_SERVER)
+        add_tms_test(simulation_http_server_test tests/simulation_http_server_test.cpp)
+        target_link_libraries(simulation_http_server_test PRIVATE tms_http tms_state_serializer)
+
+        add_tms_test(
+            simulation_state_serializer_test
+            tests/simulation_state_serializer_test.cpp
+        )
+        target_link_libraries(
+            simulation_state_serializer_test
+            PRIVATE tms_state_serializer
+        )
+    endif()
 endif()

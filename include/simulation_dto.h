@@ -28,6 +28,7 @@ struct QueueSnapshot {
 // Statistics retain their existing approach ordering.
 struct SimulationSnapshot {
     SimModel::State state = SimModel::State::Stopped;
+    std::size_t activeApproach = 0;
     std::array<SimModel::Signal, SimModel::kRoads> signals{};
     std::array<QueueSnapshot, SimModel::kRoads> queues{};
     SimulationStatistics statistics;

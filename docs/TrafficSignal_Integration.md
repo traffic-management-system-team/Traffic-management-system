@@ -36,8 +36,9 @@ The simulation or integration layer is responsible for deciding when signal tran
 If a transition is rejected, the integration layer must handle the failure and must not assume that the signal state changed.
 
 The shared simulation model in `src/simulation_model.cpp` owns signal phase
-timing. The GUI timer interval defaults to 1000 ms and is configurable; signal
-durations use logical ticks, with defaults of 10 GREEN ticks and 2 YELLOW ticks.
+timing. The `SimulationService` scheduler uses the accepted tick interval
+(default 1000 ms); signal durations use logical ticks, with defaults of 10 GREEN
+ticks and 2 YELLOW ticks.
 The model rotates North → South → East → West, starts and resets with North
 GREEN, and exposes deterministic ticks for tests without sleeping. See
 `BUILD_TESTING.md` for build and test commands.
