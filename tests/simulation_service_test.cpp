@@ -60,6 +60,7 @@ void testInitialStateAndTransitions() {
     SimulationService service;
 
     CHECK(service.getState() == SimModel::State::Stopped);
+    CHECK(service.getSnapshot().activeApproach == 0);
     CHECK(!service.pause());
     CHECK(!service.resume());
 
@@ -90,6 +91,7 @@ void testInitialStateAndTransitions() {
 
     const auto resetSnapshot = service.getSnapshot();
     CHECK(resetSnapshot.state == SimModel::State::Stopped);
+    CHECK(resetSnapshot.activeApproach == 0);
     CHECK(resetSnapshot.statistics.tickCount == 0);
     CHECK(resetSnapshot.statistics.vehiclesGenerated == 0);
     CHECK(resetSnapshot.statistics.vehiclesProcessed == 0);
@@ -97,6 +99,35 @@ void testInitialStateAndTransitions() {
 
     CHECK(service.start());
     CHECK(waitForTickCount(service, 1));
+}
+
+void testSnapshotActiveApproach() {
+    SimulationService service;
+    std::string feedback;
+    const RawConfig shortSignalPhase{
+        "100", // tickMs
+        "1",   // greenTicks
+        "1",   // yellowTicks
+        "20",  // arrivalInterval
+        "50"   // maxQueue
+    };
+
+    CHECK(service.setConfig(shortSignalPhase, feedback));
+    CHECK(service.start());
+
+    const auto deadline = std::chrono::steady_clock::now() + 2000ms;
+    while (std::chrono::steady_clock::now() < deadline) {
+        const auto snapshot = service.getSnapshot();
+        if (snapshot.statistics.tickCount >= 2) {
+            CHECK(snapshot.activeApproach == 2);
+            CHECK(snapshot.signals[2] == SimModel::Signal::Green);
+            service.reset();
+            return;
+        }
+        std::this_thread::sleep_for(2ms);
+    }
+
+    CHECK(false && "Simulation did not reach the second approach.");
 }
 
 void testConfiguration() {
@@ -142,6 +173,9 @@ void testSnapshotAndFifo() {
     CHECK(first.state == SimModel::State::Running);
 
     CHECK(first.statistics.vehiclesProcessed > 0);
+    CHECK(first.statistics.averageWaitingTicks ==
+          static_cast<double>(first.statistics.totalWaitingTicks) /
+              static_cast<double>(first.statistics.vehiclesProcessed));
 
     CHECK(
         first.statistics.vehiclesGenerated ==
@@ -280,6 +314,7 @@ void testCleanDestruction() {
 
 int main() {
     testInitialStateAndTransitions();
+    testSnapshotActiveApproach();
     testConfiguration();
     testSnapshotAndFifo();
     testProcessedVehicleRemoved();

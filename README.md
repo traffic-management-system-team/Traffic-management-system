@@ -9,3 +9,19 @@ Version distribution in every document:
 - v1.3 — C NITISH (P4)
 
 Cross-document consistency was corrected for FR/NFR/SEC IDs, test cases, architecture/design references, and UML coverage.
+
+## Current architecture
+
+The current target is a browser-based web application backed by the C++17
+simulation core and a Crow HTTP server. The backend exposes JSON REST APIs for
+simulation state, lifecycle control, and configuration. It owns one
+`SimulationService`; `tms_core` remains independent of Crow and nlohmann-json.
+
+The browser frontend is a separate pending component and is not implemented in
+this repository. No frontend framework is selected here. The earlier Qt
+desktop prototype and Part-1 GUI-oriented specifications are historical and
+are not the current application architecture.
+
+See [the current architecture](docs/Architecture.md),
+[REST API routes and build instructions](docs/REST_API.md), and
+[build and test instructions](BUILD_TESTING.md).

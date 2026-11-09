@@ -1,5 +1,7 @@
 # Issue #28 implementation handoff
 
+> Historical implementation notes: the build and scope below record the Issue #28 handoff before the Issue #9 HTTP host was integrated.
+
 ## Delivered in this branch package
 
 - Framework-neutral `SimulationControlApi` handler module.
@@ -22,7 +24,7 @@ Verified locally on Windows using MSYS2 UCRT64:
 - CMake 4.4.5
 - GNU C++ 16.2.0
 - C++17
-- BUILD_GUI=OFF
+- Core-only CMake configuration (GUI disabled for the historical run)
 - BUILD_TESTING=ON
 - Build: successful
 - CTest: 10/10 tests passed

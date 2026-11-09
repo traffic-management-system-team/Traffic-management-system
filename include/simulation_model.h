@@ -23,6 +23,7 @@ public:
     explicit SimModel(const SimConfig& config = SimConfig{});
 
     State state() const noexcept { return state_; }
+    std::size_t activeApproach() const noexcept { return currentGreenApproach_; }
     Signal signal(int road) const;
     std::size_t queueLength(int road) const;
     std::vector<Vehicle> queuedVehicles(int road) const;

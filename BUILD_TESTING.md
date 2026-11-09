@@ -4,7 +4,7 @@
 
 - A C++ compiler with C++17 support (`g++` recommended).
 - CMake 3.16 or newer.
-- Qt 6 Widgets development files to build and run the desktop GUI.
+- Git and network access to fetch the pinned Crow, Asio, and JSON dependencies for API builds.
 - Windows Command Prompt (CMD).
 - Run all commands from the repository root.
 - Queue Manager tests use the `Vehicle` module integrated through PR #15.
@@ -227,24 +227,36 @@ These tests validate Queue Manager behavior in isolation. They do not establish 
 
 ## 9. CMake build and deterministic simulation tests
 
-The project uses C++17, CMake, and Qt 6 Widgets. The simulation model and all
-eight module tests can be built without Qt by disabling the GUI target.
+The active application backend uses C++17, CMake, and the optional Crow REST
+server. The core-only configuration does not fetch Crow, Asio, or nlohmann-json.
+No Qt installation or desktop build target is required.
 
-### 9.1 Debug tests without Qt
+### 9.1 Debug core tests
 
 ```powershell
-cmake -S . -B build\debug -DBUILD_GUI=OFF -DBUILD_TESTING=ON
+cmake -S . -B build\debug -DBUILD_API_SERVER=OFF -DBUILD_TESTING=ON
 cmake --build build\debug --config Debug
 ctest --test-dir build\debug -C Debug --output-on-failure
 ```
 
-### 9.2 Release tests without Qt
+### 9.2 Release core tests
 
 ```powershell
-cmake -S . -B build\release -DBUILD_GUI=OFF -DBUILD_TESTING=ON
+cmake -S . -B build\release -DBUILD_API_SERVER=OFF -DBUILD_TESTING=ON
 cmake --build build\release --config Release
 ctest --test-dir build\release -C Release --output-on-failure
 ```
+
+#### Current web-backend verification - 9 November 2026
+
+| Configuration | Build | CTest |
+|---|---|---|
+| Debug, `BUILD_API_SERVER=ON` | Passed | 12/12 passed |
+| Release, `BUILD_API_SERVER=ON` | Passed | 12/12 passed |
+| Debug, `BUILD_API_SERVER=OFF` | Passed | 10/10 passed |
+
+These runs used Visual Studio 18 2026 x64. The active CMake configuration
+contains no Qt package lookup or desktop application target.
 
 ### 9.3 TC-10 input validation and safe configuration handling
 
@@ -255,15 +267,16 @@ errors. It also verifies that invalid submissions preserve the active
 configuration, backend rejection does not commit a candidate, and accepted
 and rejected submission counts are correct.
 
-`gui_model_test` exercises the controller-to-model application path. It checks
-successful application, invalid-input and model-rejection preservation,
-rejection while Running and Paused, and acceptance after reset. Existing
-pause/resume and reset regressions remain in the test.
+`gui_model_test` retains its historical target name but exercises the
+controller-to-model application path without Qt. It checks successful
+application, invalid-input and model-rejection preservation, rejection while
+Running and Paused, and acceptance after reset. Existing pause/resume and reset
+regressions remain in the test.
 
-The Qt-independent Debug and Release commands above build and run all eight
-registered core tests, including `input_validator_test` and `gui_model_test`.
+The core-only Debug and Release commands above build and run all ten registered
+core tests, including `input_validator_test` and `gui_model_test`.
 
-#### Recorded verification — 6 November 2026
+#### Recorded verification - 6 November 2026
 
 | Configuration | Result |
 |---|---|
@@ -280,26 +293,21 @@ For single-configuration generators, set `-DCMAKE_BUILD_TYPE=Debug` or
 `Release` at configure time and omit `--config` and `-C` from the build and
 CTest commands. The test checks remain active in Release builds.
 
-### 9.4 Build and launch the Qt 6 application
+### 9.4 Build and run the REST API backend
 
-Install a C++17 compiler, CMake, and Qt 6 Widgets development files. If Qt is
-not in the default CMake package search path, set `CMAKE_PREFIX_PATH` to the
-Qt installation prefix.
+The API server is enabled by default. Its build and run commands, including
+Debug, Release, and core-only configurations, are maintained in
+[REST API documentation](docs/REST_API.md). Starting the server does not start
+the simulation; use the documented start endpoint to begin ticks. The browser
+frontend remains a separate pending component.
 
-```powershell
-cmake -S . -B build\qt -DBUILD_GUI=ON -DBUILD_TESTING=ON -DCMAKE_PREFIX_PATH="<Qt 6 prefix>"
-cmake --build build\qt --config Debug
-.\build\qt\Debug\TrafficManagementSystem.exe
-```
-
-The timer interval defaults to 1000 ms and can be configured. GREEN defaults
-to 10 logical ticks, YELLOW to 2, and arrivals to every 3 ticks, with the first
-arrival on North at tick 3. Model tests advance logical ticks without sleeping.
+The legacy Qt prototype is retained at `legacy/qt-prototype/gui_main.cpp` for
+historical reference; it is not a CMake target or the application frontend.
 
 Configuration is accepted only while the simulation is stopped at logical
 tick zero. Invalid values are rejected without replacing the last accepted
 configuration. Accepted tick interval, signal durations, arrival interval, and
-maximum per-approach queue length are applied to timer and model behavior.
+maximum per-approach queue length are applied to the service scheduler and model behavior.
 
 Each accepted running tick increments the logical tick, processes existing
 vehicles through the signal-gated `TrafficManager`, creates the scheduled
@@ -313,6 +321,8 @@ and returns the simulation to Stopped. An explicit Start resumes ticks.
 
 ### 9.5 CMake test targets
 
-CTest registers `vehicle_manager_test`, `queue_manager_test`,
-`queue_empty_safety_test`, `queue_length_test`, `traffic_signal_test`,
-`traffic_manager_test`, `gui_model_test`, and `input_validator_test`.
+CTest registers ten core tests, including `simulation_service_test` and
+`simulation_control_api_test`, as well as `gui_model_test` (a retained legacy
+name for core model regression coverage). With `BUILD_API_SERVER=ON`, CTest
+also registers `simulation_http_server_test` and
+`simulation_state_serializer_test`.

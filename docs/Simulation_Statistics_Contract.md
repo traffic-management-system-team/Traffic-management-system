@@ -5,25 +5,19 @@
 `SimulationStatistics` is a backend-neutral value type declared in
 `include/simulation_statistics.h`. The authoritative values live in the
 existing `SimModel` in `include/simulation_model.h`; no second model or
-statistics service is introduced. The existing GUI-facing
-`include/gui_model.h` remains a compatibility header that includes the neutral
-model interface. Both the GUI and a REST host can link the CMake `tms_core`
-target, which does not link Qt.
+statistics service is introduced. The legacy `include/gui_model.h` remains as
+a compatibility header for older source consumers and includes the neutral
+model interface. The active REST backend links `tms_core`, which has no
+dependency on Qt, Crow, or nlohmann-json.
 
 `SimModel::statistics()` returns a copied snapshot. It does not advance ticks,
 dequeue vehicles, or mutate counters or queues. It is not internally
-synchronized. Issue #26's `SimulationService` must own the single production
-`SimModel` and serialize snapshot reads with tick, command, and reset
-operations using its existing synchronization boundary. Issue #28 can serialize
-this value to JSON (for example with `nlohmann/json`); JSON field names,
-transport status, and route behavior belong to the API adapter, not this core
+synchronized. The existing `SimulationService` owns the single production `SimModel` and
+serializes snapshot reads with tick, command, and reset
+operations using its existing synchronization boundary. The service provides
+the copied snapshot used by Issue #27's serializer; JSON field names,
+transport status, and route behavior belong to the API boundary, not this core
 contract.
-
-There is no `SimulationService` or REST implementation in this change. The
-integration point is for the service to include `simulation_model.h`, call
-`statistics()` while holding its model-operation boundary, and map that value
-to the agreed HTTP/JSON state response. The Qt GUI may continue using the
-compatibility header and the same model snapshot.
 
 ## Implemented fields and formulas
 
@@ -100,7 +94,7 @@ East and one West vehicle remain queued:
 }
 ```
 
-The JSON is illustrative only; this change does not implement a serializer.
-Signal states, active phase, run state, vehicle IDs/types, and FIFO vehicle
-snapshots belong to the broader state contract and REST integration in Issues
-#27/#28, not to `SimulationStatistics`.
+This example documents the statistics value contract. Signal states, active
+phase, run state, vehicle IDs/types, and FIFO vehicle snapshots are provided
+by the broader state contract and REST integration in Issues #27/#28, not by
+`SimulationStatistics` alone.
