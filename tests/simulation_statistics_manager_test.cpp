@@ -32,10 +32,10 @@ void testIndependentCountersAndSnapshot() {
     CHECK(manager.recordProcessed(SimulationApproach::East, 2));
 
     const std::array<std::size_t, kSimulationApproachCount> waiting = {
-        2, // North
-        3, // South
-        1, // East
-        0  // West
+        1, // North: 2 generated, 1 processed
+        0, // South: 1 generated, 1 processed
+        0, // East: 1 generated, 1 processed
+        0  // West: no vehicles
     };
 
     const SimulationStatistics snapshot = manager.snapshot(10, waiting);
@@ -43,22 +43,24 @@ void testIndependentCountersAndSnapshot() {
     CHECK(snapshot.tickCount == 10);
     CHECK(snapshot.vehiclesGenerated == 4);
     CHECK(snapshot.vehiclesProcessed == 3);
-    CHECK(snapshot.vehiclesWaiting == 6);
+    CHECK(snapshot.vehiclesWaiting == 1);
+    CHECK(snapshot.vehiclesGenerated ==
+          snapshot.vehiclesProcessed + snapshot.vehiclesWaiting);
     CHECK(snapshot.totalWaitingTicks == 13);
     CHECK(std::abs(snapshot.averageWaitingTicks - (13.0 / 3.0)) < 1e-12);
     CHECK(std::abs(snapshot.processedPerLogicalTick - 0.3) < 1e-12);
 
     CHECK(snapshot.approaches[0].vehiclesGenerated == 2);
     CHECK(snapshot.approaches[0].vehiclesProcessed == 1);
-    CHECK(snapshot.approaches[0].vehiclesWaiting == 2);
+    CHECK(snapshot.approaches[0].vehiclesWaiting == 1);
 
     CHECK(snapshot.approaches[1].vehiclesGenerated == 1);
     CHECK(snapshot.approaches[1].vehiclesProcessed == 1);
-    CHECK(snapshot.approaches[1].vehiclesWaiting == 3);
+    CHECK(snapshot.approaches[1].vehiclesWaiting == 0);
 
     CHECK(snapshot.approaches[2].vehiclesGenerated == 1);
     CHECK(snapshot.approaches[2].vehiclesProcessed == 1);
-    CHECK(snapshot.approaches[2].vehiclesWaiting == 1);
+    CHECK(snapshot.approaches[2].vehiclesWaiting == 0);
 
     CHECK(snapshot.approaches[3].vehiclesGenerated == 0);
     CHECK(snapshot.approaches[3].vehiclesProcessed == 0);
