@@ -305,10 +305,11 @@ CTest commands. The test checks remain active in Release builds.
 The API server is enabled by default. Its build and run commands, including
 Debug, Release, and core-only configurations, are maintained in
 [REST API documentation](docs/REST_API.md). Starting the server does not start
-the simulation; use the documented start endpoint to begin ticks. The selected
-browser frontend stack is React, TypeScript, Vite and Tailwind CSS. It remains
-unimplemented; browser integration and acceptance checks are listed in the
-Issue #12 demo-readiness checklist.
+the simulation; use the documented start endpoint to begin ticks. The React,
+TypeScript, Vite and Tailwind CSS frontend scaffold is maintained separately
+under `frontend/`; see its [setup and verification guide](frontend/README.md).
+Browser dashboard integration and acceptance checks are listed in the Issue
+#12 demo-readiness checklist.
 
 The legacy Qt prototype is retained at `legacy/qt-prototype/gui_main.cpp` for
 historical reference; it is not a CMake target or the application frontend.
@@ -336,12 +337,14 @@ name for core model regression coverage). With `BUILD_API_SERVER=ON`, CTest
 also registers `simulation_http_server_test` and
 `simulation_state_serializer_test`.
 
-## 10. Issue #12 documentation and demo readiness
+## 10. Frontend scaffold and Issue #12 demo readiness
 
-The target frontend stack is React, TypeScript, Vite and Tailwind CSS. This
-selection does not mean the browser application exists. Frontend source,
-browser/API integration, UI responsiveness, keyboard accessibility and
-end-to-end acceptance remain pending.
+The React, TypeScript, Vite and Tailwind CSS frontend scaffold, typed API
+client, API-client tests, responsive shell and live state request are present
+under `frontend/`. The full browser dashboard, lifecycle/configuration UI,
+signals, queues and statistics presentation, browser accessibility review and
+end-to-end acceptance remain pending. Frontend install, type-check, test and
+build commands are documented in [frontend/README.md](frontend/README.md).
 
 Previously inspected local CTest records show Debug 12/12, Release 12/12, and
 core-only Debug 10/10 passing. Their logs contain no source commit ID or source
