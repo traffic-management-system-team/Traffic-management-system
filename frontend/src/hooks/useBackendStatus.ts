@@ -200,17 +200,37 @@ export function useBackendStatus() {
     setConfigurationError(null);
   }, []);
 
+  // Determine the current simulation state from the backend snapshot.
+  const simulationState =
+    status.kind === "connected"
+      ? status.snapshot.state
+      : status.kind === "error"
+        ? status.snapshot?.state
+        : undefined;
+
+  // Poll less frequently when the simulation is paused or stopped.
+  const pollingInterval =
+    simulationState === "running"
+      ? 1000
+      : simulationState === "paused"
+        ? 5000
+        : 10000;
+
+  // Fetch initial state once and whenever refresh changes.
   useEffect(() => {
     void refresh();
+  }, [refresh]);
 
+  // Change the polling interval without triggering an extra immediate fetch.
+  useEffect(() => {
     const pollId = window.setInterval(() => {
       if (!pendingRef.current) {
         void refresh(true);
       }
-    }, 1000);
+    }, pollingInterval);
 
     return () => window.clearInterval(pollId);
-  }, [refresh]);
+  }, [refresh, pollingInterval]);
 
   return {
     status,
