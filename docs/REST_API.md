@@ -66,18 +66,19 @@ sources.
 
 `BUILD_API_SERVER=OFF` skips Crow and Asio entirely, leaving `tms_core` and its
 tests buildable without the HTTP dependencies. Qt is not an active dependency
-or build target. The selected browser frontend stack is React, TypeScript, Vite and Tailwind CSS.
-It remains unimplemented; this repository does not claim to provide browser
-functionality.
+or build target. The React, TypeScript, Vite and Tailwind CSS frontend scaffold
+is maintained separately in `frontend/`; the full browser dashboard and
+controls are still pending.
 
 ## Browser deployment
 
 The recommended initial deployment serves the browser frontend and REST backend
 through the same public origin. Put a reverse proxy in front of both: serve the
 frontend from that origin and route `/api/` requests to the Crow backend. The
-browser calls the existing API endpoints on the shared origin. The selected
-React, TypeScript, Vite and Tailwind CSS frontend is not implemented in this
-repository.
+browser calls the existing API endpoints on the shared origin. The
+React/TypeScript/Vite scaffold and typed API client are implemented. The
+complete dashboard, simulation controls, and remaining browser acceptance work
+are pending under subsequent issues.
 
 The backend rejects cross-origin browser requests, and this policy is not
 weakened here. For a TLS-terminating reverse proxy, set the backend process
@@ -249,8 +250,10 @@ Validation on Windows with Visual Studio 18 / MSVC 19.51.36256 and Windows SDK
 | Debug, `BUILD_API_SERVER=OFF` | Passed | 10/10 passed |
 
 The current CMake configuration has no Qt package lookup or desktop GUI target.
-The selected React, TypeScript, Vite and Tailwind CSS frontend remains
-unimplemented and is not included in these backend builds.
+The React, TypeScript, Vite and Tailwind CSS frontend scaffold is maintained in
+`frontend/` and is not included in these backend builds. Its typed client uses
+the same-origin `/api` path; see the [frontend setup guide](../frontend/README.md).
+The full browser dashboard and controls remain pending.
 
 The saved CTest records do not contain a source commit ID or source hash. They
 cannot conclusively identify the exact source revision or prove whether all
