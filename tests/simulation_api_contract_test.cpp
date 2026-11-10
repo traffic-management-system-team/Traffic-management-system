@@ -505,14 +505,18 @@ void testDeterministicArrivalsSignalTransitionsAndSignalGatedMovement() {
     CHECK(model.tick());
     CHECK(model.queuedVehicles(1).empty());
     CHECK(model.signal(1) == SimModel::Signal::Yellow);
-    CHECK(model.queuedVehicles(3).size() == 1);
-    CHECK(model.queuedVehicles(3)[0].getId() == 8);
+    const auto westAfterEighthTick = model.queuedVehicles(3);
+    CHECK(westAfterEighthTick.size() == 2);
+    CHECK(westAfterEighthTick[0].getId() == 4);
+    CHECK(westAfterEighthTick[1].getId() == 8);
 
     CHECK(model.tick());
     CHECK(model.signal(1) == SimModel::Signal::Red);
     CHECK(model.signal(3) == SimModel::Signal::Green);
-    CHECK(model.queuedVehicles(3).size() == 1);
-    CHECK(model.queuedVehicles(3)[0].getId() == 8);
+    const auto westAfterNinthTick = model.queuedVehicles(3);
+    CHECK(westAfterNinthTick.size() == 2);
+    CHECK(westAfterNinthTick[0].getId() == 4);
+    CHECK(westAfterNinthTick[1].getId() == 8);
 
     const auto statistics = model.statistics();
     CHECK(statistics.tickCount == 9);
