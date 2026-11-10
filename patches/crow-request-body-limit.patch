@@ -1,28 +1,18 @@
 diff --git a/include/crow/http_request.h b/include/crow/http_request.h
-index 5d27bbc..5f9b17a 100644
+index 89c54dcea..f806f480f 100644
 --- a/include/crow/http_request.h
 +++ b/include/crow/http_request.h
-@@ -44,5 +44,6 @@ namespace crow // NOTE: Already documented in "crow/app.h"
-         ci_map headers;
-         std::string body;
+@@ -53,0 +54 @@ namespace crow // NOTE: Already documented in "crow/app.h"
 +        bool body_too_large = false;
-         std::string remote_ip_address; ///< The IP address from which the request was sent.
-         uint16_t remote_port = 0;      ///< The TCP port from which the request was sent (0 for Unix domain sockets).
-         unsigned char http_ver_major, http_ver_minor;
 diff --git a/include/crow/parser.h b/include/crow/parser.h
-index 9a7f023..c1a8e41 100644
+index 1417d6cb6..4862af307 100644
 --- a/include/crow/parser.h
 +++ b/include/crow/parser.h
-@@ -7,2 +7,5 @@
- #include "crow/http_request.h"
- #include "crow/http_parser_merged.h"
+@@ -8,0 +9,3 @@
 +#ifndef TMS_HTTP_MAX_REQUEST_BODY_BYTES
 +#define TMS_HTTP_MAX_REQUEST_BODY_BYTES 65536
 +#endif
-@@ -88,7 +91,17 @@ namespace crow
-         static int on_body(http_parser* self_, const char* at, size_t length)
-         {
-             HTTPParser* self = static_cast<HTTPParser*>(self_);
+@@ -91 +94,11 @@ namespace crow
 -            self->req.body.insert(self->req.body.end(), at, at + length);
 +            const std::size_t maxBodySize =
 +                static_cast<std::size_t>(TMS_HTTP_MAX_REQUEST_BODY_BYTES);
@@ -35,7 +25,3 @@ index 9a7f023..c1a8e41 100644
 +                return 0;
 +            }
 +            self->req.body.append(at, length);
-             return 0;
-         }
-         static int on_message_complete(http_parser* self_)
-         {

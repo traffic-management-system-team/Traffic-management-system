@@ -60,7 +60,9 @@ void testInitialStateAndTransitions() {
     SimulationService service;
 
     CHECK(service.getState() == SimModel::State::Stopped);
-    CHECK(service.getSnapshot().activeApproach == 0);
+    const auto initialSnapshot = service.getSnapshot();
+    CHECK(initialSnapshot.activeApproach == 0);
+    CHECK(initialSnapshot.signals[0] == SimModel::Signal::Green);
     CHECK(!service.pause());
     CHECK(!service.resume());
 
@@ -92,6 +94,7 @@ void testInitialStateAndTransitions() {
     const auto resetSnapshot = service.getSnapshot();
     CHECK(resetSnapshot.state == SimModel::State::Stopped);
     CHECK(resetSnapshot.activeApproach == 0);
+    CHECK(resetSnapshot.signals[0] == SimModel::Signal::Green);
     CHECK(resetSnapshot.statistics.tickCount == 0);
     CHECK(resetSnapshot.statistics.vehiclesGenerated == 0);
     CHECK(resetSnapshot.statistics.vehiclesProcessed == 0);
@@ -129,7 +132,6 @@ void testSnapshotActiveApproach() {
 
     CHECK(false && "Simulation did not reach the second approach.");
 }
-
 void testConfiguration() {
     SimulationService service;
     std::string feedback;
@@ -160,6 +162,23 @@ void testConfiguration() {
     service.reset();
 }
 
+void testModelActiveApproachTransition() {
+    SimModel model(SimConfig{100, 1, 1, 1, 50});
+
+    CHECK(model.activeApproach() == 0);
+    CHECK(model.signal(0) == SimModel::Signal::Green);
+
+    model.start();
+
+    CHECK(model.tick());
+    CHECK(model.activeApproach() == 0);
+    CHECK(model.signal(0) == SimModel::Signal::Yellow);
+
+    CHECK(model.tick());
+    CHECK(model.activeApproach() == 2);
+    CHECK(model.signal(0) == SimModel::Signal::Red);
+    CHECK(model.signal(2) == SimModel::Signal::Green);
+}
 void testSnapshotAndFifo() {
     SimulationService service;
     std::string feedback;
@@ -217,6 +236,66 @@ void testSnapshotAndFifo() {
 
 
 
+void testSnapshotReadsAreNonMutating() {
+    SimulationService service;
+    std::string feedback;
+
+    CHECK(service.setConfig(fastConfig(), feedback));
+    CHECK(service.start());
+    CHECK(waitForTickCount(service, 12));
+    CHECK(service.pause());
+
+    const auto baseline = service.getSnapshot();
+
+    CHECK(baseline.state == SimModel::State::Paused);
+
+    for (int iteration = 0; iteration < 25; ++iteration) {
+        const auto current = service.getSnapshot();
+
+        CHECK(current.state == baseline.state);
+        CHECK(current.activeApproach == baseline.activeApproach);
+        CHECK(current.signals == baseline.signals);
+
+        CHECK(current.statistics.tickCount == baseline.statistics.tickCount);
+        CHECK(current.statistics.vehiclesGenerated == baseline.statistics.vehiclesGenerated);
+        CHECK(current.statistics.vehiclesProcessed == baseline.statistics.vehiclesProcessed);
+        CHECK(current.statistics.vehiclesWaiting == baseline.statistics.vehiclesWaiting);
+        CHECK(current.statistics.totalWaitingTicks == baseline.statistics.totalWaitingTicks);
+        CHECK(current.statistics.averageWaitingTicks == baseline.statistics.averageWaitingTicks);
+        CHECK(current.statistics.processedPerLogicalTick == baseline.statistics.processedPerLogicalTick);
+
+        CHECK(current.config.tickMs == baseline.config.tickMs);
+        CHECK(current.config.greenTicks == baseline.config.greenTicks);
+        CHECK(current.config.yellowTicks == baseline.config.yellowTicks);
+        CHECK(current.config.arrivalInterval == baseline.config.arrivalInterval);
+        CHECK(current.config.maxQueue == baseline.config.maxQueue);
+
+        for (std::size_t road = 0; road < baseline.queues.size(); ++road) {
+            const auto& expected = baseline.queues[road];
+            const auto& actual = current.queues[road];
+
+            CHECK(actual.roadId == expected.roadId);
+            CHECK(actual.vehicles.size() == expected.vehicles.size());
+
+            for (std::size_t vehicle = 0; vehicle < expected.vehicles.size(); ++vehicle) {
+                CHECK(actual.vehicles[vehicle].id == expected.vehicles[vehicle].id);
+                CHECK(actual.vehicles[vehicle].type == expected.vehicles[vehicle].type);
+                CHECK(actual.vehicles[vehicle].lane == expected.vehicles[vehicle].lane);
+            }
+        }
+
+        for (std::size_t approach = 0;
+             approach < baseline.statistics.approaches.size();
+             ++approach) {
+            const auto& expected = baseline.statistics.approaches[approach];
+            const auto& actual = current.statistics.approaches[approach];
+
+            CHECK(actual.vehiclesGenerated == expected.vehiclesGenerated);
+            CHECK(actual.vehiclesProcessed == expected.vehiclesProcessed);
+            CHECK(actual.vehiclesWaiting == expected.vehiclesWaiting);
+        }
+    }
+}
 void testProcessedVehicleRemoved() {
     SimulationService service;
     std::string feedback;
@@ -316,7 +395,9 @@ int main() {
     testInitialStateAndTransitions();
     testSnapshotActiveApproach();
     testConfiguration();
+    testModelActiveApproachTransition();
     testSnapshotAndFifo();
+    testSnapshotReadsAreNonMutating();
     testProcessedVehicleRemoved();
     testConcurrentSnapshotsAndStateChanges();
     testCleanDestruction();

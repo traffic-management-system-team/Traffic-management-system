@@ -5,6 +5,9 @@
 
 #include <asio.hpp>
 
+#include <algorithm>
+#include <cmath>
+
 #include <atomic>
 #include <chrono>
 #include <cstdint>
@@ -97,7 +100,8 @@ HttpResponse sendRequest(
     const std::string& origin = {},
     const std::string& fetchSite = {},
     const std::string& forwardedProto = {},
-    const std::string& forwardedHost = {}
+    const std::string& forwardedHost = {},
+    bool chunkedTransfer = false
 ) {
     asio::io_context context;
     asio::ip::tcp::socket socket(context);
@@ -124,10 +128,38 @@ HttpResponse sendRequest(
     if (!forwardedHost.empty()) {
         request << "X-Forwarded-Host: " << forwardedHost << "\r\n";
     }
-    request << "Content-Length: " << body.size() << "\r\n"
-            << "Connection: close\r\n\r\n"
-            << body;
-    asio::write(socket, asio::buffer(request.str()));
+    if (chunkedTransfer) {
+        request << "Transfer-Encoding: chunked\r\n";
+    } else {
+        request << "Content-Length: " << body.size() << "\r\n";
+    }
+
+    request << "Connection: close\r\n\r\n";
+
+    if (chunkedTransfer) {
+        constexpr std::size_t chunkSize = 4096;
+        for (std::size_t offset = 0; offset < body.size();) {
+            const std::size_t length = std::min(
+                chunkSize, body.size() - offset
+            );
+
+            std::ostringstream chunkLength;
+            chunkLength << std::hex << length;
+            request << chunkLength.str() << "\r\n";
+            request.write(
+                body.data() + offset,
+                static_cast<std::streamsize>(length)
+            );
+            request << "\r\n";
+            offset += length;
+        }
+        request << "0\r\n\r\n";
+    } else {
+        request << body;
+    }
+
+    const std::string requestData = request.str();
+    asio::write(socket, asio::buffer(requestData));
 
     asio::streambuf responseBuffer;
     asio::read_until(socket, responseBuffer, "\r\n\r\n");
@@ -218,6 +250,90 @@ nlohmann::json getStateData(std::uint16_t port) {
     return envelope.at("data");
 }
 
+void checkStateDataContract(const nlohmann::json& state) {
+    const std::vector<std::string> expectedApproaches = {
+        "north", "east", "south", "west"
+    };
+    const std::vector<std::string> expectedStatisticsOrder = {
+        "north", "south", "east", "west"
+    };
+    const std::vector<std::string> validSignals = {
+        "red", "yellow", "green"
+    };
+
+    CHECK(state.at("state").is_string());
+    CHECK(state.at("tickCount").is_number_unsigned() ||
+          state.at("tickCount").is_number_integer());
+    CHECK(state.at("activeApproach").is_string());
+    CHECK(state.at("activeSignal").is_string());
+
+    const auto& approaches = state.at("approaches");
+    CHECK(approaches.is_array());
+    CHECK(approaches.size() == 4);
+
+    for (std::size_t i = 0; i < approaches.size(); ++i) {
+        const auto& approach = approaches[i];
+
+        CHECK(approach.at("id") == expectedApproaches[i]);
+        CHECK(approach.at("name").is_string());
+        CHECK(approach.at("signal").is_string());
+        CHECK(std::find(
+            validSignals.begin(),
+            validSignals.end(),
+            approach.at("signal").get<std::string>()
+        ) != validSignals.end());
+
+        CHECK(approach.at("queueLength").is_number());
+        CHECK(approach.at("vehicles").is_array());
+        CHECK(approach.at("queueLength") == approach.at("vehicles").size());
+
+        for (const auto& vehicle : approach.at("vehicles")) {
+            CHECK(vehicle.at("id").is_number());
+            CHECK(vehicle.at("type").is_string());
+            CHECK(vehicle.at("lane").is_string());
+        }
+    }
+
+    const auto& config = state.at("config");
+    CHECK(config.at("tickMs").is_number());
+    CHECK(config.at("greenTicks").is_number());
+    CHECK(config.at("yellowTicks").is_number());
+    CHECK(config.at("arrivalInterval").is_number());
+    CHECK(config.at("maxQueue").is_number());
+
+    const auto& statistics = state.at("statistics");
+    CHECK(statistics.at("tickCount") == state.at("tickCount"));
+    CHECK(statistics.at("vehiclesGenerated").is_number());
+    CHECK(statistics.at("vehiclesProcessed").is_number());
+    CHECK(statistics.at("vehiclesWaiting").is_number());
+    CHECK(statistics.at("totalWaitingTicks").is_number());
+    CHECK(statistics.at("averageWaitingTicks").is_number());
+    CHECK(statistics.at("processedPerLogicalTick").is_number());
+
+    const auto processed =
+        statistics.at("vehiclesProcessed").get<double>();
+    const auto totalWaiting =
+        statistics.at("totalWaitingTicks").get<double>();
+    const auto averageWaiting =
+        statistics.at("averageWaitingTicks").get<double>();
+
+    const double expectedAverage =
+        processed == 0.0 ? 0.0 : totalWaiting / processed;
+
+    CHECK(std::abs(averageWaiting - expectedAverage) < 1e-9);
+
+    const auto& approachStatistics = statistics.at("approaches");
+    CHECK(approachStatistics.is_array());
+    CHECK(approachStatistics.size() == 4);
+
+    for (std::size_t i = 0; i < approachStatistics.size(); ++i) {
+        const auto& approach = approachStatistics[i];
+        CHECK(approach.at("id") == expectedStatisticsOrder[i]);
+        CHECK(approach.at("vehiclesGenerated").is_number());
+        CHECK(approach.at("vehiclesProcessed").is_number());
+        CHECK(approach.at("vehiclesWaiting").is_number());
+    }
+}
 
 void testAcceptedConfiguredOrigin(const std::string& origin) {
     CHECK(setPublicOrigin(origin.c_str()));
@@ -282,6 +398,25 @@ void testConfiguredPublicOrigin() {
             CHECK(response.body.find("\"code\":\"CROSS_ORIGIN_REQUEST\"") !=
                   std::string::npos);
         }
+        // Cross-origin rejection takes precedence over oversized-body rejection.
+        const std::string oversizedBody(
+            SimulationHttpLimits::MaxRequestBodyBytes + 1, 'x'
+        );
+        response = sendRequest(
+            server.port(), "GET", "/api/simulation/state",
+            oversizedBody, {}, "https://attacker.example:8443",
+            "same-origin", "https", "traffic.example:8443"
+        );
+        CHECK(response.status == 403);
+        CHECK(response.contentType == "application/json");
+
+        const auto oversizedOriginEnvelope =
+            nlohmann::json::parse(response.body);
+        CHECK(oversizedOriginEnvelope.at("success") == false);
+        CHECK(oversizedOriginEnvelope.at("data").is_null());
+        CHECK(oversizedOriginEnvelope.at("error").at("code") ==
+              "CROSS_ORIGIN_REQUEST");
+        CHECK(oversizedOriginEnvelope.at("error").at("message").is_string());
         CHECK(sendRequest(server.port(), "GET", "/api/simulation/state").status == 200);
         CHECK(server.stop());
     }
@@ -332,6 +467,17 @@ void testUnsupportedMethodsUseJsonEnvelope() {
     checkMethodNotAllowed(
         sendRequest(server.port(), "POST", "/api/simulation/state"), "GET"
     );
+    // An oversized POST must return 405 before body-size validation.
+    const std::string oversizedPostBody(
+        SimulationHttpLimits::MaxRequestBodyBytes + 1, 'x'
+    );
+    checkMethodNotAllowed(
+        sendRequest(
+            server.port(), "POST", "/api/simulation/state",
+            oversizedPostBody
+        ),
+        "GET"
+    );
     checkMethodNotAllowed(
         sendRequest(server.port(), "GET", "/api/simulation/config"), "PUT"
     );
@@ -352,6 +498,7 @@ void testControlRoutesAndResponsePassthrough() {
     CHECK(server.port() != 0);
 
     auto state = getStateData(server.port());
+    checkStateDataContract(state);
     CHECK(state.at("state") == "stopped");
     CHECK(state.at("activeApproach") == "north");
     CHECK(state.at("activeSignal") == "green");
@@ -370,6 +517,7 @@ void testControlRoutesAndResponsePassthrough() {
     CHECK(response.body ==
           "{\"success\":true,\"data\":{\"state\":\"running\"},\"error\":null}");
     state = getStateData(server.port());
+    checkStateDataContract(state);
     CHECK(state.at("state") == "running");
     CHECK(state.at("activeApproach") == "north");
 
@@ -382,13 +530,22 @@ void testControlRoutesAndResponsePassthrough() {
     CHECK(response.body ==
           "{\"success\":true,\"data\":{\"state\":\"paused\"},\"error\":null}");
     state = getStateData(server.port());
+    checkStateDataContract(state);
     CHECK(state.at("state") == "paused");
+
+    const auto pausedSnapshot = state;
+    for (int i = 0; i < 5; ++i) {
+        const auto repeatedRead = getStateData(server.port());
+        checkStateDataContract(repeatedRead);
+        CHECK(repeatedRead == pausedSnapshot);
+    }
 
     response = post(server.port(), "/api/simulation/resume");
     CHECK(response.status == 200);
     CHECK(response.body ==
           "{\"success\":true,\"data\":{\"state\":\"running\"},\"error\":null}");
     state = getStateData(server.port());
+    checkStateDataContract(state);
     CHECK(state.at("state") == "running");
 
     response = post(server.port(), "/api/simulation/reset");
@@ -398,6 +555,7 @@ void testControlRoutesAndResponsePassthrough() {
           "{\"tickMs\":1000,\"greenTicks\":10,\"yellowTicks\":2,"
           "\"arrivalInterval\":3,\"maxQueue\":12}},\"error\":null}");
     state = getStateData(server.port());
+    checkStateDataContract(state);
     CHECK(state.at("state") == "stopped");
 
     response = sendJsonRequest(
@@ -631,6 +789,97 @@ void testRequestBodySizeLimit() {
     CHECK(response.contentType == "application/json");
     CHECK(response.body.find("\"code\":\"PAYLOAD_TOO_LARGE\"") !=
           std::string::npos);
+    // Normal state GET must return the success envelope.
+    const auto stateBefore = getStateData(server.port());
+
+    // An oversized POST to a valid control route must be rejected before execution.
+    const std::string oversizedControlBody(
+        SimulationHttpLimits::MaxRequestBodyBytes + 1, 'x'
+    );
+    response = sendRequest(
+        server.port(), "POST", "/api/simulation/start",
+        oversizedControlBody
+    );
+    CHECK(response.status == 413);
+    CHECK(response.contentType == "application/json");
+
+    auto oversizedControlEnvelope = nlohmann::json::parse(response.body);
+    CHECK(oversizedControlEnvelope.at("success") == false);
+    CHECK(oversizedControlEnvelope.at("data").is_null());
+    CHECK(oversizedControlEnvelope.at("error").at("code") ==
+          "PAYLOAD_TOO_LARGE");
+    CHECK(getStateData(server.port()) == stateBefore);
+
+    response = sendRequest(
+        server.port(), "GET", "/api/simulation/state"
+    );
+    CHECK(response.status == 200);
+    CHECK(response.contentType == "application/json");
+
+    auto envelope = nlohmann::json::parse(response.body);
+    CHECK(envelope.at("success") == true);
+    CHECK(envelope.at("error").is_null());
+    CHECK(envelope.at("data") == stateBefore);
+
+    // Exactly 64 KiB is accepted.
+    const std::string stateBodyAtLimit(
+        SimulationHttpLimits::MaxRequestBodyBytes, ' '
+    );
+
+    response = sendRequest(
+        server.port(), "GET", "/api/simulation/state",
+        stateBodyAtLimit
+    );
+    CHECK(response.status == 200);
+    CHECK(response.contentType == "application/json");
+
+    envelope = nlohmann::json::parse(response.body);
+    CHECK(envelope.at("success") == true);
+    CHECK(envelope.at("error").is_null());
+    CHECK(envelope.at("data") == stateBefore);
+
+    // One byte above the limit is rejected.
+    response = sendRequest(
+        server.port(), "GET", "/api/simulation/state",
+        stateBodyAtLimit + " "
+    );
+    CHECK(response.status == 413);
+    CHECK(response.contentType == "application/json");
+
+    envelope = nlohmann::json::parse(response.body);
+    CHECK(envelope.at("success") == false);
+    CHECK(envelope.at("data").is_null());
+    CHECK(envelope.at("error").at("code") == "PAYLOAD_TOO_LARGE");
+    CHECK(envelope.at("error").at("message").is_string());
+
+    // Chunked transfer: exactly 64 KiB is accepted.
+    response = sendRequest(
+        server.port(), "GET", "/api/simulation/state",
+        stateBodyAtLimit, {}, {}, {}, {}, {}, true
+    );
+    CHECK(response.status == 200);
+    CHECK(response.contentType == "application/json");
+
+    envelope = nlohmann::json::parse(response.body);
+    CHECK(envelope.at("success") == true);
+    CHECK(envelope.at("error").is_null());
+    CHECK(envelope.at("data") == stateBefore);
+
+    // Chunked transfer: one byte above the limit is rejected.
+    response = sendRequest(
+        server.port(), "GET", "/api/simulation/state",
+        stateBodyAtLimit + " ", {}, {}, {}, {}, {}, true
+    );
+    CHECK(response.status == 413);
+    CHECK(response.contentType == "application/json");
+
+    envelope = nlohmann::json::parse(response.body);
+    CHECK(envelope.at("success") == false);
+    CHECK(envelope.at("data").is_null());
+    CHECK(envelope.at("error").at("code") == "PAYLOAD_TOO_LARGE");
+    CHECK(envelope.at("error").at("message").is_string());
+    // All requests above must leave simulation state unchanged.
+    CHECK(getStateData(server.port()) == stateBefore);
     CHECK(server.stop());
 }
 
@@ -650,6 +899,36 @@ void testConcurrentRequestsAndServiceScheduler() {
     response = post(server.port(), "/api/simulation/start");
     CHECK(response.status == 200);
     std::this_thread::sleep_for(std::chrono::milliseconds(150));
+
+    const auto runConcurrentStateReads = [&] {
+        std::atomic<int> successCount{0};
+        std::mutex errorMutex;
+        std::string requestError;
+        std::vector<std::thread> requests;
+
+        for (int i = 0; i < 12; ++i) {
+            requests.emplace_back([&] {
+                try {
+                    const auto state = getStateData(server.port());
+                    checkStateDataContract(state);
+                    CHECK(state.at("state") == "running");
+                    ++successCount;
+                } catch (const std::exception& exception) {
+                    std::lock_guard<std::mutex> lock(errorMutex);
+                    requestError = exception.what();
+                }
+            });
+        }
+
+        for (auto& request : requests) {
+            request.join();
+        }
+
+        CHECK(requestError.empty());
+        CHECK(successCount == 12);
+    };
+
+    runConcurrentStateReads();
 
     const auto runConcurrentCommands = [&](const std::string& path) {
         std::atomic<int> successCount{0};
