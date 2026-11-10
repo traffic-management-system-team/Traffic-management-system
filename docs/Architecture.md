@@ -4,11 +4,16 @@
 
 The selected target architecture is a React, TypeScript, Vite and Tailwind CSS
 browser frontend communicating with the C++17 backend over JSON REST APIs. The
-repository now contains a frontend scaffold, a typed API client, API-client unit
-tests, a responsive connection-status shell, lifecycle controls and a
-configuration form that use authoritative API responses. The full intersection
-dashboard, signals/queues/statistics presentation, and end-to-end browser
-acceptance coverage remain pending.
+repository contains a typed API client and a responsive browser dashboard with
+four signal/queue approaches, FIFO vehicle details, aggregate statistics,
+lifecycle controls and a configuration form. The app consumes authoritative
+backend snapshots and polls at a state-dependent interval.
+
+Automated Vitest component/hook tests cover dashboard rendering, snapshot
+refreshes, FIFO display, signal labels, controls, keyboard form submission and
+adaptive polling. A full cross-browser Playwright end-to-end suite and manual
+accessibility audit are deployment-level validation still to be performed;
+they are not missing dashboard implementation.
 
 The GUI-based Part-1 SRS, SAD, test plan, sprint records, and UML diagrams are
 historical design artifacts for the earlier desktop prototype. They remain
@@ -38,16 +43,21 @@ Crow HTTP host
                                                  tms_core
 ```
 
-- **Frontend scaffold (implemented):** `frontend/` contains the
+- **Frontend dashboard (implemented):** `frontend/` contains the
   React/TypeScript/Vite/Tailwind application, typed API client,
-  connection/loading/error shell, lifecycle controls, configuration form,
-  API-client and UI tests. It fetches `/api/simulation/state`, uses backend
-  command responses, and refreshes state after lifecycle actions. The full
-  dashboard rendering, statistics presentation, responsive browser
-  verification and end-to-end flows remain pending.
+  connection/loading/error shell, four-approach intersection dashboard,
+  signal indicators, FIFO vehicle queues, aggregate generated/processed/waiting
+  and average-wait metrics, per-approach activity, lifecycle controls and
+  configuration form. It fetches `/api/simulation/state`, uses backend command
+  responses, and polls the authoritative snapshot every second while running,
+  every five seconds while paused, and every ten seconds while stopped.
+  Responsive CSS breakpoints, focus-visible styles, descriptive signal labels,
+  keyboard form submission and reduced-motion support are implemented.
+  Vitest component/hook tests cover these behaviors; full cross-browser E2E and
+  manual accessibility audits remain deployment-level evidence.
 - **HTTP host and adapter:** One Crow server registers the six approved endpoints. The adapter translates control/configuration HTTP requests into the existing framework-neutral `SimulationControlApi` calls. The state route serializes a copied snapshot from the same service.
 - **Service layer:** One shared `SimulationService` is the authoritative simulation owner and sole scheduler/tick source. It synchronizes commands, configuration, ticks, and snapshots.
-- **Simulation core:** `tms_core` contains the simulation model, validation, configuration, and control API logic. It has no Crow or nlohmann-json dependency.
+- **Simulation core:** `tms_core` contains the simulation model, validation, configuration, statistics aggregation and control API logic. It has no Crow or nlohmann-json dependency.
 - **State serializer:** The separate `tms_state_serializer` target uses nlohmann-json and accepts a `const SimulationSnapshot&`. It returns state data only; the HTTP layer supplies the common response envelope.
 
 Starting the HTTP host does not start or reset the simulation. The start
