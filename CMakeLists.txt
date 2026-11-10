@@ -21,6 +21,7 @@ add_library(tms_core
     src/TrafficSignal.cpp
     src/simulation_model.cpp
     src/simulation_service.cpp
+    src/simulation_statistics_manager.cpp
     src/input_validator.cpp
     src/config_controller.cpp
     src/simulation_control_api.cpp
@@ -139,6 +140,7 @@ if(BUILD_TESTING)
     add_tms_test(gui_model_test tests/gui_model_test.cpp)
     add_tms_test(input_validator_test tests/input_validator_test.cpp)
     add_tms_test(simulation_service_test tests/simulation_service_test.cpp)
+    add_tms_test(simulation_statistics_manager_test tests/simulation_statistics_manager_test.cpp)
     add_tms_test(simulation_control_api_test tests/simulation_control_api_test.cpp)
 
     if(BUILD_API_SERVER)
