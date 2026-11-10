@@ -20,16 +20,6 @@ constexpr std::size_t kRoadStatisticsOrder[SimModel::kRoads] = {
     0, 2, 1, 3
 };
 
-std::uint64_t sumCounts(
-    const std::array<std::uint64_t, kSimulationApproachCount>& counts
-) noexcept {
-    std::uint64_t total = 0;
-    for (const std::uint64_t count : counts) {
-        total += count;
-    }
-    return total;
-}
-
 std::size_t nextApproach(std::size_t approach) {
     switch (approach) {
         case 0: return 2;
@@ -65,11 +55,11 @@ SimModel::SimModel(const SimConfig& config)
 }
 
 std::uint64_t SimModel::generatedCount() const noexcept {
-    return sumCounts(generatedByApproach_);
+    return statisticsManager_.generatedCount();
 }
 
 std::uint64_t SimModel::processedCount() const noexcept {
-    return sumCounts(processedByApproach_);
+    return statisticsManager_.processedCount();
 }
 
 bool SimModel::setConfig(const SimConfig& config) {
@@ -105,36 +95,17 @@ std::size_t SimModel::queueLength(int road) const {
 }
 
 SimulationStatistics SimModel::statistics() const {
-    SimulationStatistics result;
-    result.tickCount = ticks_;
-    result.vehiclesGenerated = generatedCount();
-    result.vehiclesProcessed = processedCount();
-    result.totalWaitingTicks = totalWaitingTicks_;
+    std::array<std::size_t, kSimulationApproachCount> waitingByApproach{};
 
     for (std::size_t approach = 0;
          approach < kSimulationApproachCount;
          ++approach) {
         const std::size_t road = kStatisticsRoadOrder[approach];
-        auto& approachStats = result.approaches[approach];
-        approachStats.vehiclesGenerated = generatedByApproach_[approach];
-        approachStats.vehiclesProcessed = processedByApproach_[approach];
-        approachStats.vehiclesWaiting =
+        waitingByApproach[approach] =
             queueManager_.getQueueLength(kRoadIds[road]);
-        result.vehiclesWaiting += approachStats.vehiclesWaiting;
     }
 
-    if (result.vehiclesProcessed != 0) {
-        result.averageWaitingTicks =
-            static_cast<double>(totalWaitingTicks_) /
-            static_cast<double>(result.vehiclesProcessed);
-    }
-    if (ticks_ != 0) {
-        result.processedPerLogicalTick =
-            static_cast<double>(result.vehiclesProcessed) /
-            static_cast<double>(ticks_);
-    }
-
-    return result;
+    return statisticsManager_.snapshot(ticks_, waitingByApproach);
 }
 
 void SimModel::start() noexcept {
@@ -165,9 +136,7 @@ void SimModel::reset() {
     state_ = State::Stopped;
     ticks_ = 0;
     phaseElapsedTicks_ = 0;
-    totalWaitingTicks_ = 0;
-    generatedByApproach_.fill(0);
-    processedByApproach_.fill(0);
+    statisticsManager_.reset();
     nextArrivalApproach_ = 0;
     currentGreenApproach_ = 0;
 
@@ -199,11 +168,16 @@ bool SimModel::tick() {
             throw std::logic_error("Processed vehicle is missing from manager");
         }
 
-        totalWaitingTicks_ += ticks_ - arrival->second;
-        arrivalTicksByVehicle_.erase(arrival);
-        ++processedByApproach_[
+        const auto statisticsApproach = static_cast<SimulationApproach>(
             kRoadStatisticsOrder[static_cast<std::size_t>(road)]
-        ];
+        );
+        if (!statisticsManager_.recordProcessed(
+                statisticsApproach,
+                ticks_ - arrival->second
+            )) {
+            throw std::logic_error("Processed vehicle has an invalid approach");
+        }
+        arrivalTicksByVehicle_.erase(arrival);
     }
 
     if (ticks_ % static_cast<std::uint64_t>(config_.arrivalInterval) == 0) {
@@ -219,7 +193,12 @@ bool SimModel::tick() {
                 throw std::runtime_error("Unable to enqueue arriving vehicle");
             }
             arrivalTicksByVehicle_.emplace(vehicle.getId(), ticks_);
-            ++generatedByApproach_[kRoadStatisticsOrder[road]];
+            const auto statisticsApproach = static_cast<SimulationApproach>(
+                kRoadStatisticsOrder[road]
+            );
+            if (!statisticsManager_.recordGenerated(statisticsApproach)) {
+                throw std::logic_error("Generated vehicle has an invalid approach");
+            }
         }
         nextArrivalApproach_ =
             (nextArrivalApproach_ + 1) % kRoads;
