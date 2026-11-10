@@ -120,6 +120,23 @@ describe("IntersectionDashboard", () => {
     expect(screen.getByText("Logical tick:").parentElement?.textContent).toContain("25");
   });
 
+  it("uses responsive grids for summary metrics and approach cards", () => {
+    render(<IntersectionDashboard snapshot={sample} />);
+
+    const summary = screen.getByLabelText("Simulation statistics");
+    expect(summary.className).toContain("grid-cols-2");
+    expect(summary.className).toContain("sm:grid-cols-4");
+
+    const northCard = screen
+      .getByRole("heading", { name: "North" })
+      .closest("article");
+    expect(northCard).toBeTruthy();
+
+    const approachGrid = northCard?.parentElement;
+    expect(approachGrid?.className).toContain("sm:grid-cols-2");
+    expect(approachGrid?.className).toContain("xl:grid-cols-4");
+  });
+
   it("preserves backend FIFO order and displays queue capacity", () => {
     render(<IntersectionDashboard snapshot={sample} />);
 
