@@ -7,6 +7,7 @@
 #include "vehicle_manager.h"
 #include "sim_config.h"
 #include "simulation_statistics.h"
+#include "simulation_statistics_manager.h"
 
 #include <array>
 #include <cstddef>
@@ -31,7 +32,7 @@ public:
     std::uint64_t generatedCount() const noexcept;
     std::uint64_t processedCount() const noexcept;
     std::uint64_t totalWaitingTicks() const noexcept {
-        return totalWaitingTicks_;
+        return statisticsManager_.totalWaitingTicks();
     }
     SimulationStatistics statistics() const;
 
@@ -51,17 +52,13 @@ private:
     State state_ = State::Stopped;
     std::uint64_t ticks_ = 0;
     std::uint64_t phaseElapsedTicks_ = 0;
-    std::uint64_t totalWaitingTicks_ = 0;
-    std::array<std::uint64_t, kSimulationApproachCount>
-        generatedByApproach_{};
-    std::array<std::uint64_t, kSimulationApproachCount>
-        processedByApproach_{};
     std::size_t nextArrivalApproach_ = 0;
     std::size_t currentGreenApproach_ = 0;
 
     SignalCoordinator signalCoordinator_;
     VehicleManager vehicleManager_;
     QueueManager queueManager_;
+    SimulationStatisticsManager statisticsManager_;
     std::array<TrafficSignal, kRoads> signals_;
     std::array<TrafficManager, kRoads> trafficManagers_;
     std::unordered_map<int, std::uint64_t> arrivalTicksByVehicle_;
