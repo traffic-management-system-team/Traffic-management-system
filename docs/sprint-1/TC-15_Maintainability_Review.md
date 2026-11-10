@@ -15,7 +15,8 @@ This review evaluates the active C++ backend boundaries relevant to TC-15. It is
 | Simulation model | `include/simulation_model.h`, `src/simulation_model.cpp` | Logical tick ordering, arrivals, movement coordination, signal phases and aggregate statistics |
 | Service | `include/simulation_service.h`, `src/simulation_service.cpp` | Authoritative model owner, scheduler worker, synchronization and copied snapshots |
 | Validation/configuration/control | `include/input_validator.h`, `include/config_controller.h`, `include/simulation_control_api.h`; matching `src/` implementations | Framework-neutral input/configuration and command policy |
-| Snapshot DTO/statistics | `include/simulation_dto.h`, `include/simulation_statistics.h` | Plain copied state and statistics structures; no HTTP types |
+| Snapshot DTO/statistics | `include/simulation_dto.h`, `include/simulation_statistics.h` | Plain copied state/statistics structures; no HTTP types |
+| Statistics aggregation | `include/simulation_statistics_manager.h`, `src/simulation_statistics_manager.cpp` | Independent generated/processed counters, waiting-time aggregation, per-approach mapping, reset and snapshot calculations |
 | State serialization | `include/simulation_state_serializer.h`, `src/simulation_state_serializer.cpp` | Convert a supplied snapshot to JSON data; no model ownership |
 | HTTP host/adapter | `include/simulation_http_server.h`, `include/simulation_http_adapter.h`; `src/simulation_http_server.cpp`, `src/simulation_http_adapter.cpp` | Listener lifecycle, route registration, HTTP/JSON translation and common response envelopes |
 
@@ -45,37 +46,32 @@ The API contract tests instantiate a real `SimulationService` and `SimulationHtt
 3. JSON serialization consumes a DTO snapshot rather than reaching into the model. The DTO and statistics types do not depend on Crow or JSON.
 4. The CMake graph keeps the HTTP framework and JSON serialization dependencies out of `tms_core`. Core targets have independent test executables.
 5. The HTTP integration tests and new contract tests start the actual server on loopback with an ephemeral port, and pass the service by reference.
+6. Statistics aggregation is now encapsulated in `SimulationStatisticsManager`; `SimModel` provides tick count and per-approach queue lengths to its snapshot API rather than owning aggregate counter arrays and formulas.
 
 **Maintainability gaps**
 
-1. `SimModel` remains the orchestration point for vehicle creation, queue updates, traffic-manager calls, signal phase advancement and statistics accumulation. This is a deliberate aggregate boundary, but it is relatively broad and should remain a focus of future decomposition.
-2. Aggregate statistics are calculated by `SimModel::statistics()`; `simulation_statistics.h` defines data types, not an independent statistics manager. NFR-04's “statistics logic separated into maintainable modules” is therefore only partially demonstrated.
+1. `SimModel` remains the orchestration point for vehicle creation, queue updates, traffic-manager calls and signal-phase advancement. This is the aggregate coordination boundary; it now delegates statistics counter ownership and aggregation to `SimulationStatisticsManager`.
+2. Queue-length observations are passed to the statistics manager in the established North/South/East/West approach order. The independent manager test verifies the mapping and aggregate totals.
 3. The HTTP adapter header includes Crow and is intentionally tied to the HTTP target. This is acceptable at the boundary; it must not be included from `tms_core` or core public interfaces.
 4. The review is a focused code/interface inspection, not an automated architecture-dependency rule or a formal maintainability metric.
 
 ## 4. TC-15 assessment
 
-- **NFR-04 — partially verified.** Vehicle, queue, signal, movement, service, validation/control and serialization responsibilities have identifiable interfaces and implementation files. The aggregate simulation model still coordinates several of them, and statistics calculations are not an independent module. These are recorded gaps rather than hidden by the passing test count.
-- **NFR-05 — verified for the represented core modules.** Core production code is a separate CMake target with separate module/service test executables. The independent API-enabled test targets integrate through public service/server interfaces rather than requiring tests to reach into the HTTP adapter's internal state. The final revision-bound Debug/Release results are in `RTM_TC_Mapping.csv`.
+- **NFR-04 — modular implementation completed; latest test verification pending.** Vehicle, queue, signal, movement, service, validation/control, statistics aggregation and serialization have identifiable module boundaries. Statistics counters, waiting-time totals and aggregate snapshot calculations live in the separately testable `SimulationStatisticsManager`. `SimModel` remains the intended intersection coordinator rather than implementing the statistics calculations itself.
+- **NFR-05 — independently buildable/testable core modules.** Core production code remains a separate CMake target with separate module/service/statistics-manager test executables. The API integration tests use public service/server interfaces rather than requiring access to HTTP adapter internals. The latest revision adds one core test target; fresh results are pending as recorded in `RTM_TC_Mapping.csv`.
 
 
-## 6. Revision-bound build and test verification
+## 6. Module test and build verification status
 
-**Source revision tested:** `162336e206390e74ac04be5bc2fe66ee17f3a1c2`
+The prior execution at commit `162336e206390e74ac04be5bc2fe66ee17f3a1c2` passed API-enabled Debug 13/13, API-enabled Release 13/13 and core-only Debug 10/10. That execution predates the addition of `SimulationStatisticsManager`, its standalone unit test, the dashboard aggregate metrics and the CI workflow. It is **not** evidence for the current branch head.
 
-**Environment:** Windows x64, Clang 23.1.5 via `clang-cl`, CMake/Ninja Multi-Config.
+The refactor adds one core CTest target, so the expected current counts are eleven core targets, three API-enabled targets, fourteen API-enabled tests total. Fresh Debug, Release, core-only and frontend runs must complete on the current branch head before those counts are marked passed. The Windows/Ubuntu CI matrix and Clang ASan/UBSan job are also pending workflow results.
 
-| Build mode | Configure/build | CTest result | Scope |
-|---|---|---:|---|
-| API-enabled Debug | Passed | 13/13 passed | 10 core tests + 3 API-enabled tests |
-| API-enabled Release | Passed | 13/13 passed | 10 core tests + 3 API-enabled tests |
-| Core-only Debug, `BUILD_API_SERVER=OFF` | Configure and build passed | 10/10 passed | Core only; API dependencies are not required |
+The statistics-manager unit test independently exercises counter accumulation, per-approach ordering, snapshot aggregation, invalid enum handling and reset.
 
-The API-enabled suite preserves all ten core test registrations and adds three API-enabled tests. The new `simulation_api_contract_test` uses a real loopback HTTP server with an ephemeral port and the actual `SimulationService`; the deterministic logical-tick test drives `SimModel::tick()` directly without wall-clock sleeps for tick-count assertions.
+## 7. Out of scope / evidence limits
 
-These are locally executed test results reported from the checked-out revision. No CI workflow result is claimed. No ThreadSanitizer, AddressSanitizer, UndefinedBehaviorSanitizer, static-analysis report, or second-platform build was produced by this review.
+The frontend dashboard is implemented and has Vitest component/hook coverage for four-approach signal/queue display, FIFO data, aggregate metrics, snapshot refresh, adaptive polling, keyboard form submission, accessible signal names and responsive CSS structure. The frontend quality checks are run by the new GitHub Actions job; until that job passes for the final head, no fresh workflow result is claimed.
 
+A full cross-browser Playwright suite and manual screen-reader/accessibility audit are not present. No real-browser latency/frame-rate benchmark is claimed for NFR-02. The Windows/Ubuntu workflow is intended to supply NFR-06 cross-platform build evidence when it passes. The Linux ASan/UBSan job supplies dynamic evidence for SEC-04 when it passes, but does not replace a static-analysis report or ThreadSanitizer run.
 
-## 5. Out of scope for this review
-
-This review does not establish browser GUI usability/responsiveness, cross-platform portability, or comprehensive memory-safety assurance. Those are tracked separately in the RTM and are not marked as satisfied by this document.
