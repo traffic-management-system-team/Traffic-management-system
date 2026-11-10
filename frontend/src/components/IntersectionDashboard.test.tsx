@@ -1,6 +1,6 @@
 
- // @vitest-environment jsdom
-import { cleanup, render, screen, within } from "@testing-library/react";
+// @vitest-environment jsdom
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { SimulationSnapshot } from "../api/types";
 import { IntersectionDashboard } from "./IntersectionDashboard";
@@ -55,6 +55,24 @@ const sample: SimulationSnapshot = {
   },
 };
 
+function withNorthCounters(
+  snapshot: SimulationSnapshot,
+  vehiclesGenerated: number,
+  vehiclesProcessed: number,
+): SimulationSnapshot {
+  return {
+    ...snapshot,
+    statistics: {
+      ...snapshot.statistics,
+      approaches: snapshot.statistics.approaches.map((approach) =>
+        approach.id === "north"
+          ? { ...approach, vehiclesGenerated, vehiclesProcessed }
+          : approach,
+      ),
+    },
+  };
+}
+
 afterEach(() => cleanup());
 
 describe("IntersectionDashboard", () => {
@@ -88,5 +106,79 @@ describe("IntersectionDashboard", () => {
     expect(rows[1]?.textContent).toContain("Vehicle #11");
     expect(card.getByText(/Queued\s*\/\s*12 capacity/)).toBeTruthy();
     expect(screen.getByText(/Logical tick:/)).toBeTruthy();
+  });
+
+  it("shows arrivals when backend vehiclesGenerated increases", () => {
+    const { rerender } = render(
+      <IntersectionDashboard snapshot={sample} />,
+    );
+
+    const nextSnapshot = withNorthCounters(sample, 5, 0);
+
+    act(() => {
+      rerender(<IntersectionDashboard snapshot={nextSnapshot} />);
+    });
+
+    const northCard = screen
+      .getByRole("heading", { name: "North" })
+      .closest("article") as HTMLElement;
+
+    expect(within(northCard).getByText("+3 generated")).toBeTruthy();
+  });
+
+  it("shows processed vehicles when backend vehiclesProcessed increases", () => {
+    const { rerender } = render(
+      <IntersectionDashboard snapshot={sample} />,
+    );
+
+    const nextSnapshot = withNorthCounters(sample, 2, 3);
+
+    act(() => {
+      rerender(<IntersectionDashboard snapshot={nextSnapshot} />);
+    });
+
+    const northCard = screen
+      .getByRole("heading", { name: "North" })
+      .closest("article") as HTMLElement;
+
+    expect(within(northCard).getByText("3 processed")).toBeTruthy();
+  });
+
+  it("does not show negative activity when backend counters reset", () => {
+    const beforeReset = withNorthCounters(sample, 5, 4);
+    const { rerender } = render(
+      <IntersectionDashboard snapshot={beforeReset} />,
+    );
+
+    const resetSnapshot = withNorthCounters(beforeReset, 0, 0);
+
+    act(() => {
+      rerender(<IntersectionDashboard snapshot={resetSnapshot} />);
+    });
+
+    const northCard = screen
+      .getByRole("heading", { name: "North" })
+      .closest("article") as HTMLElement;
+
+    expect(within(northCard).getByText("+0 generated")).toBeTruthy();
+    expect(within(northCard).getByText("0 processed")).toBeTruthy();
+    expect(northCard.textContent).not.toMatch(/-\d+ (generated|processed)/);
+  });
+
+  it("exposes descriptive accessible labels for every signal indicator", () => {
+    render(<IntersectionDashboard snapshot={sample} />);
+
+    expect(
+      screen.getByRole("img", { name: "North approach signal: GREEN" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("img", { name: "East approach signal: RED" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("img", { name: "South approach signal: YELLOW" }),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("img", { name: "West approach signal: RED" }),
+    ).toBeTruthy();
   });
 });
