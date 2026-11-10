@@ -5,10 +5,10 @@
 The selected target architecture is a React, TypeScript, Vite and Tailwind CSS
 browser frontend communicating with the C++17 backend over JSON REST APIs. The
 repository now contains a frontend scaffold, a typed API client, API-client unit
-tests and a responsive connection-status shell that requests the live
-simulation state. It does not yet contain the full intersection dashboard,
-browser lifecycle/configuration controls, signals/queues/statistics
-presentation, or end-to-end browser acceptance coverage.
+tests, a responsive connection-status shell, lifecycle controls and a
+configuration form that use authoritative API responses. The full intersection
+dashboard, signals/queues/statistics presentation, and end-to-end browser
+acceptance coverage remain pending.
 
 The GUI-based Part-1 SRS, SAD, test plan, sprint records, and UML diagrams are
 historical design artifacts for the earlier desktop prototype. They remain
@@ -40,10 +40,11 @@ Crow HTTP host
 
 - **Frontend scaffold (implemented):** `frontend/` contains the
   React/TypeScript/Vite/Tailwind application, typed API client,
-  connection/loading/error shell, and API-client tests. The shell fetches
-  `/api/simulation/state`. Full dashboard rendering, controls, configuration
-  UI, statistics, responsive browser verification and end-to-end flows are
-  pending.
+  connection/loading/error shell, lifecycle controls, configuration form,
+  API-client and UI tests. It fetches `/api/simulation/state`, uses backend
+  command responses, and refreshes state after lifecycle actions. The full
+  dashboard rendering, statistics presentation, responsive browser
+  verification and end-to-end flows remain pending.
 - **HTTP host and adapter:** One Crow server registers the six approved endpoints. The adapter translates control/configuration HTTP requests into the existing framework-neutral `SimulationControlApi` calls. The state route serializes a copied snapshot from the same service.
 - **Service layer:** One shared `SimulationService` is the authoritative simulation owner and sole scheduler/tick source. It synchronizes commands, configuration, ticks, and snapshots.
 - **Simulation core:** `tms_core` contains the simulation model, validation, configuration, and control API logic. It has no Crow or nlohmann-json dependency.
