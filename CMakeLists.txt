@@ -153,5 +153,14 @@ if(BUILD_TESTING)
             simulation_state_serializer_test
             PRIVATE tms_state_serializer
         )
+
+        add_tms_test(
+            simulation_api_contract_test
+            tests/simulation_api_contract_test.cpp
+        )
+        target_link_libraries(
+            simulation_api_contract_test
+            PRIVATE tms_http tms_state_serializer
+        )
     endif()
 endif()
