@@ -542,8 +542,9 @@ void validateConcurrentSnapshot(const Json& data) {
 
     std::set<int> allVehicleIds;
     std::size_t totalWaiting = 0;
-    std::size_t greenSignals = 0;
-    std::string greenApproach;
+    std::size_t activeSignals = 0;
+    std::string activeApproach;
+    std::string activeSignal;
 
     for (const auto& approach : approaches) {
         const std::string roadId = approach.at("id").get<std::string>();
@@ -557,9 +558,10 @@ void validateConcurrentSnapshot(const Json& data) {
                 "Queue length must match its vehicle array.");
         require(signal == "red" || signal == "yellow" || signal == "green",
                 "Approach signal must be a known state.");
-        if (signal == "green") {
-            ++greenSignals;
-            greenApproach = roadId;
+        if (signal != "red") {
+            ++activeSignals;
+            activeApproach = roadId;
+            activeSignal = signal;
         }
 
         totalWaiting += queueLength;
@@ -575,11 +577,12 @@ void validateConcurrentSnapshot(const Json& data) {
         }
     }
 
-    require(greenSignals == 1, "Exactly one approach must have a green signal.");
-    require(data.at("activeApproach") == greenApproach,
-            "Active approach must match the green signal.");
-    require(data.at("activeSignal") == "green",
-            "Active signal must be green.");
+    require(activeSignals == 1,
+            "Exactly one approach must be active (GREEN or YELLOW).");
+    require(data.at("activeApproach") == activeApproach,
+            "Active approach must match the non-RED approach.");
+    require(data.at("activeSignal") == activeSignal,
+            "Active signal must match its approach signal state.");
 
     const auto& statistics = data.at("statistics");
     require(statistics.at("vehiclesWaiting").get<std::size_t>() == totalWaiting,
