@@ -2,7 +2,7 @@
 
 ## Review scope
 
-This review evaluates the active C++ backend boundaries relevant to TC-15. It is a source/interface and CMake dependency review, not a claim that passing tests alone prove maintainability. The reviewed branch is `dinesh/issue-33-api-contract-tests`; final execution provenance is recorded in the detailed TC mapping file after the expanded Debug/Release rerun.
+This review evaluates the active C++ backend boundaries relevant to TC-15. It is a source/interface and CMake dependency review, not a claim that passing tests alone prove maintainability. The reviewed branch is `dinesh/issue-33-api-contract-tests`. The executable test source was verified at commit `162336e206390e74ac04be5bc2fe66ee17f3a1c2`; subsequent PR commits updated only traceability documentation.
 
 ## 1. Module boundaries and public interfaces
 
@@ -57,6 +57,24 @@ The API contract tests instantiate a real `SimulationService` and `SimulationHtt
 
 - **NFR-04 — partially verified.** Vehicle, queue, signal, movement, service, validation/control and serialization responsibilities have identifiable interfaces and implementation files. The aggregate simulation model still coordinates several of them, and statistics calculations are not an independent module. These are recorded gaps rather than hidden by the passing test count.
 - **NFR-05 — verified for the represented core modules.** Core production code is a separate CMake target with separate module/service test executables. The independent API-enabled test targets integrate through public service/server interfaces rather than requiring tests to reach into the HTTP adapter's internal state. The final revision-bound Debug/Release results are in `RTM_TC_Mapping.csv`.
+
+
+## 6. Revision-bound build and test verification
+
+**Source revision tested:** `162336e206390e74ac04be5bc2fe66ee17f3a1c2`
+
+**Environment:** Windows x64, Clang 23.1.5 via `clang-cl`, CMake/Ninja Multi-Config.
+
+| Build mode | Configure/build | CTest result | Scope |
+|---|---|---:|---|
+| API-enabled Debug | Passed | 13/13 passed | 10 core tests + 3 API-enabled tests |
+| API-enabled Release | Passed | 13/13 passed | 10 core tests + 3 API-enabled tests |
+| Core-only Debug, `BUILD_API_SERVER=OFF` | Configure and build passed | 10/10 passed | Core only; API dependencies are not required |
+
+The API-enabled suite preserves all ten core test registrations and adds three API-enabled tests. The new `simulation_api_contract_test` uses a real loopback HTTP server with an ephemeral port and the actual `SimulationService`; the deterministic logical-tick test drives `SimModel::tick()` directly without wall-clock sleeps for tick-count assertions.
+
+These are locally executed test results reported from the checked-out revision. No CI workflow result is claimed. No ThreadSanitizer, AddressSanitizer, UndefinedBehaviorSanitizer, static-analysis report, or second-platform build was produced by this review.
+
 
 ## 5. Out of scope for this review
 
