@@ -253,7 +253,9 @@ The current CMake configuration has no Qt package lookup or desktop GUI target.
 The React, TypeScript, Vite and Tailwind CSS frontend scaffold is maintained in
 `frontend/` and is not included in these backend builds. Its typed client uses
 the same-origin `/api` path; see the [frontend setup guide](../frontend/README.md).
-The full browser dashboard and controls remain pending.
+The lifecycle controls and configuration form are implemented in the frontend;
+the full browser dashboard, live backend demonstration, and acceptance evidence
+remain pending.
 
 The saved CTest records do not contain a source commit ID or source hash. They
 cannot conclusively identify the exact source revision or prove whether all
