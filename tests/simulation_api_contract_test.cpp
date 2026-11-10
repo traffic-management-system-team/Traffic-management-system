@@ -518,12 +518,20 @@ void testDeterministicArrivalsSignalTransitionsAndSignalGatedMovement() {
     CHECK(westAfterNinthTick[0].getId() == 4);
     CHECK(westAfterNinthTick[1].getId() == 8);
 
+    // On tick 10, West is already GREEN at tick entry, so only its
+    // oldest queued vehicle (ID 4) may be processed.
+    CHECK(model.tick());
+    const auto westAfterTenthTick = model.queuedVehicles(3);
+    CHECK(westAfterTenthTick.size() == 1);
+    CHECK(westAfterTenthTick[0].getId() == 8);
+    CHECK(model.statistics().vehiclesProcessed == 4);
+
     const auto statistics = model.statistics();
-    CHECK(statistics.tickCount == 9);
-    CHECK(statistics.vehiclesGenerated == 9);
+    CHECK(statistics.tickCount == 10);
+    CHECK(statistics.vehiclesGenerated == 10);
     CHECK(statistics.vehiclesProcessed == 4);
-    CHECK(statistics.vehiclesWaiting == 5);
-    CHECK(statistics.totalWaitingTicks == 8);
+    CHECK(statistics.vehiclesWaiting == 6);
+    CHECK(statistics.totalWaitingTicks == 13);
 }
 
 void validateConcurrentSnapshot(const Json& data) {
