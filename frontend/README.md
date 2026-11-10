@@ -1,10 +1,10 @@
-# Frontend scaffold
+# Frontend application
 
 ## Prerequisites
 
-- Node.js 22.12 or newer (Node 22.17 was used for verification).
+- Node.js 22.12 or newer (Node 22.17 is used by the frontend validation workflow).
 - npm 10 or newer.
-- The C++ API server is optional for UI-shell work. For live connection status, start it on the configured target (default `http://127.0.0.1:18080`).
+- The C++ REST API server is required for live data. It listens at `http://127.0.0.1:18080` by default.
 
 ## Install and run
 
@@ -12,15 +12,15 @@ From the repository root:
 
 ```powershell
 cd frontend
-npm install
+npm ci
 Copy-Item .env.example .env.local
-# Edit API_PROXY_TARGET in .env.local if the backend listens elsewhere.
+# Edit API_PROXY_TARGET in .env.local only if the backend listens elsewhere.
 npm run dev
 ```
 
-Vite serves the frontend and forwards same-origin `/api/*` requests to `API_PROXY_TARGET`. This variable is used only by the Node-side Vite configuration and is not exposed in the browser bundle. The default is `http://127.0.0.1:18080`. Do not add a `VITE_` prefix or enable permissive CORS. The proxy preserves the browser-facing `Host` and `Origin` headers to remain compatible with backend origin validation; deployments should serve the frontend and API through one public origin as described in [the architecture](../docs/Architecture.md#browser-deployment).
+In another terminal, start the backend server using the CMake build instructions in [REST API documentation](../docs/REST_API.md). Vite serves the frontend and forwards same-origin `/api/*` requests to `API_PROXY_TARGET`. This variable is used only by the Node-side Vite configuration and is not exposed in the browser bundle. Do not add a `VITE_` prefix or enable permissive CORS. The proxy preserves browser-facing `Host` and `Origin` headers to remain compatible with backend origin validation.
 
-## Quality checks and production build
+## Automated quality checks
 
 ```powershell
 npm run type-check
@@ -28,23 +28,29 @@ npm test
 npm run build
 ```
 
-`npm ci` can be run for reproducible installation using the checked-in
-`package-lock.json`. The production output is written to `frontend/dist/` and is not served by the C++ CMake targets.
+The GitHub Actions Issue #33 workflow runs all three checks. It also runs the component and hook tests on every matching pull request.
 
-## Implemented scope
+## Implemented dashboard and controls
 
-The React app includes a responsive connection shell, Start/Pause/Resume/Reset
-controls, and a five-field configuration form. It loads state from
-`GET /api/simulation/state`, refreshes after lifecycle actions, and displays
-the last accepted configuration separately from editable draft values. A
-centralized typed API client covers the six documented endpoints, parses the
-common `{ success, data, error }` envelope, preserves backend error codes,
-messages and validation details, and normalizes HTTP, network and malformed
-response errors.
+The React application renders a responsive intersection dashboard from the authoritative `GET /api/simulation/state` snapshot:
 
-The full intersection dashboard, signal and queue presentation, and statistics
-UI remain future work for Issues #30 and #32. The controls and form use
-responsive breakpoints, and keyboard submission has component coverage; the
-layout and full accessibility behavior still require dedicated browser review
-and end-to-end acceptance. See the [Issue #12 demo-readiness
-checklist](../docs/Issue_12_Demo_Readiness.md).
+- Four approach cards (North, East, South, West), with a descriptive RED/YELLOW/GREEN signal state and active-approach marker.
+- Each approach's queue in backend FIFO order, vehicle ID/type/lane, queue length and configured capacity.
+- Aggregate generated, processed, waiting and average-wait statistics, plus the logical tick and simulation state.
+- Per-approach arrivals/processed activity since the previous snapshot.
+- Start, Pause, Resume and Reset controls, plus the five-field configuration form. The form keeps the last backend-accepted values separate from draft values and respects backend configuration locks.
+
+The backend snapshot hook refreshes every second while running, every five seconds while paused, and every ten seconds while stopped. It stops polling while a command is pending and refreshes immediately after lifecycle/configuration operations and state conflicts.
+
+## Responsive and accessibility behavior
+
+The dashboard uses responsive grid breakpoints: statistics render in two columns on narrow screens and four columns at the small-screen breakpoint; approach cards move from one column to two and then four at larger breakpoints. The header/navigation adapts below 768 px. Controls and configuration fields have accessible names, status/signal indicators have descriptive labels, keyboard form submission is supported, focus-visible styles are defined, and reduced-motion preferences are respected.
+
+## Frontend test coverage and its limits
+
+- `App.test.tsx`: lifecycle actions and refresh, API conflict handling, configuration validation/accepted-value preservation, loading/duplicate-action behavior and keyboard submission.
+- `IntersectionDashboard.test.tsx`: four approach/signal display, FIFO order, capacity, aggregate statistics on refreshed snapshots, per-approach activity and accessible signal labels.
+- `useBackendStatus.test.ts`: adaptive polling at running/paused/stopped intervals and interval changes across state transitions.
+- `client.test.ts`: typed REST envelope, endpoint, HTTP, network and malformed-response behavior.
+
+These are automated React component/hook and API-client tests in Vitest/jsdom. They provide regression coverage for dashboard rendering, refresh behavior, responsive class structure and keyboard semantics; they are not a full cross-browser Playwright end-to-end or manual accessibility audit. Production deployment/browser compatibility still needs a deployment-environment smoke test.
