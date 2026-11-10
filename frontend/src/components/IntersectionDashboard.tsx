@@ -233,6 +233,36 @@ export function IntersectionDashboard({ snapshot }: Props) {
           </div>
         </div>
 
+        <dl
+          className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4"
+          aria-label="Simulation statistics"
+        >
+          <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
+            <dt className="text-xs font-medium text-slate-400">Vehicles generated</dt>
+            <dd className="mt-2 text-2xl font-semibold tabular-nums text-white">
+              {snapshot.statistics.vehiclesGenerated}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
+            <dt className="text-xs font-medium text-slate-400">Vehicles processed</dt>
+            <dd className="mt-2 text-2xl font-semibold tabular-nums text-white">
+              {snapshot.statistics.vehiclesProcessed}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
+            <dt className="text-xs font-medium text-slate-400">Vehicles waiting</dt>
+            <dd className="mt-2 text-2xl font-semibold tabular-nums text-white">
+              {snapshot.statistics.vehiclesWaiting}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
+            <dt className="text-xs font-medium text-slate-400">Average wait · ticks</dt>
+            <dd className="mt-2 text-2xl font-semibold tabular-nums text-white">
+              {snapshot.statistics.averageWaitingTicks.toFixed(1)}
+            </dd>
+          </div>
+        </dl>
+
         <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {snapshot.approaches.map((approach) => (
             <ApproachCard
