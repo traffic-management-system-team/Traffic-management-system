@@ -33,6 +33,18 @@ npm run build
 
 ## Implemented scope
 
-The initial React shell displays a loading, backend error, or connected state from `GET /api/simulation/state`; it includes a responsive header/navigation shell and a retry action. A centralized typed API client covers the six documented state, lifecycle and configuration endpoints and parses the common `{ success, data, error }` envelope. It preserves backend error codes, messages and validation details and normalizes HTTP, network and malformed-response errors.
+The React app includes a responsive connection shell, Start/Pause/Resume/Reset
+controls, and a five-field configuration form. It loads state from
+`GET /api/simulation/state`, refreshes after lifecycle actions, and displays
+the last accepted configuration separately from editable draft values. A
+centralized typed API client covers the six documented endpoints, parses the
+common `{ success, data, error }` envelope, preserves backend error codes,
+messages and validation details, and normalizes HTTP, network and malformed
+response errors.
 
-This scaffold does not implement the full intersection dashboard, browser lifecycle/configuration controls, signal and queue presentation, or statistics UI. Those features remain for Issues #30–#32. Browser accessibility/responsiveness and end-to-end acceptance also require dedicated verification; see the [Issue #12 demo-readiness checklist](../docs/Issue_12_Demo_Readiness.md).
+The full intersection dashboard, signal and queue presentation, and statistics
+UI remain future work for Issues #30 and #32. The controls and form use
+responsive breakpoints, and keyboard submission has component coverage; the
+layout and full accessibility behavior still require dedicated browser review
+and end-to-end acceptance. See the [Issue #12 demo-readiness
+checklist](../docs/Issue_12_Demo_Readiness.md).

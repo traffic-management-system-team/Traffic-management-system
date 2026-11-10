@@ -4,14 +4,20 @@ import { StatusBadge } from "./StatusBadge";
 interface BackendConnectionCardProps {
   status: BackendStatus;
   onRetry: () => void;
+  isBusy: boolean;
 }
 
 export function BackendConnectionCard({
   status,
   onRetry,
+  isBusy,
 }: BackendConnectionCardProps) {
   const connected = status.kind === "connected";
   const loading = status.kind === "loading";
+  const lastKnownSnapshot = status.kind === "error" ? status.snapshot : undefined;
+  const displayedState = connected
+    ? status.snapshot.state
+    : lastKnownSnapshot?.state;
 
   return (
     <section
@@ -27,11 +33,15 @@ export function BackendConnectionCard({
               id="connection-title"
               className="mt-2 text-xl font-semibold tracking-tight text-white sm:text-2xl"
             >
-              {connected ? "The service is responding" : "Simulation service"}
+              {connected
+                ? "The service is responding"
+                : lastKnownSnapshot
+                  ? "Backend connection needs attention"
+                  : "Simulation service"}
             </h2>
           </div>
-          {connected ? (
-            <StatusBadge state={status.snapshot.state} />
+          {displayedState ? (
+            <StatusBadge state={displayedState} />
           ) : (
             <span
               className={
@@ -88,8 +98,10 @@ export function BackendConnectionCard({
                 className="button-secondary shrink-0"
                 type="button"
                 onClick={onRetry}
+                disabled={isBusy}
+                aria-label="Retry backend connection"
               >
-                Retry connection
+                {isBusy ? "Refreshing…" : "Retry connection"}
               </button>
             )}
           </div>

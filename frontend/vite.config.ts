@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
       environment: "node",
       clearMocks: true,
       restoreMocks: true,
-      include: ["src/**/*.test.ts"],
+      include: ["src/**/*.test.ts", "src/**/*.test.tsx"],
     },
   };
 });
