@@ -63,11 +63,11 @@ The API contract tests instantiate a real `SimulationService` and `SimulationHtt
 
 ## 5. Module test and build verification status
 
-The prior execution at commit `162336e206390e74ac04be5bc2fe66ee17f3a1c2` passed API-enabled Debug 13/13, API-enabled Release 13/13 and core-only Debug 10/10. That execution predates the addition of `SimulationStatisticsManager`, its standalone unit test, the dashboard aggregate metrics and the CI workflow. It is **not** evidence for the current branch head.
+The prior full-project execution at commit `162336e206390e74ac04be5bc2fe66ee17f3a1c2` passed API-enabled Debug 13/13, API-enabled Release 13/13 and core-only Debug 10/10. That execution predates the addition of `SimulationStatisticsManager`, its standalone unit test, the dashboard aggregate metrics and the CI workflow. It is **not** evidence for the current branch head.
 
-The refactor adds one core CTest target, so the expected current counts are eleven core targets, three API-enabled targets, fourteen API-enabled tests total. Fresh Debug, Release, core-only and frontend runs must complete on the current branch head before those counts are marked passed. The Windows/Ubuntu CI matrix and Clang ASan/UBSan job are also pending workflow results.
+The refactor adds one core CTest target, so the expected current counts are eleven core targets, three API-enabled targets, fourteen API-enabled tests total. Fresh Debug, Release, core-only and frontend runs must complete on the current branch head before those counts are marked passed. The Windows/Ubuntu CI matrix, full-core Clang ASan/UBSan job and clang-tidy clang-analyzer job are still queued in GitHub Actions run #28.
 
-The statistics-manager unit test independently exercises counter accumulation, per-approach ordering, snapshot aggregation, invalid enum handling and reset.
+The statistics-manager unit test independently exercises counter accumulation, per-approach ordering, snapshot aggregation, the generated = processed + waiting invariant, invalid enum handling and reset. On the current head (`6463e3e1fff028f99ed6db2eaf4360847d8e950c`), the exact manager source/header/test were also compiled and executed in an isolated Linux harness: GCC 14.2 with `-std=c++17 -Wall -Wextra -Wpedantic -Werror` passed, and Clang 17 with AddressSanitizer + UndefinedBehaviorSanitizer and leak detection enabled passed. This is focused manager-module evidence only; it is not a full CMake/CTest or full-core sanitizer run.
 
 ## 6. Out of scope / evidence limits
 
