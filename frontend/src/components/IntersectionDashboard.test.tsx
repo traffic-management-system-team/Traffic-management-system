@@ -88,6 +88,38 @@ describe("IntersectionDashboard", () => {
     expect(screen.getByText("YELLOW")).toBeTruthy();
   });
 
+  it("renders authoritative aggregate statistics from each refreshed snapshot", () => {
+    const { rerender } = render(
+      <IntersectionDashboard snapshot={sample} />,
+    );
+
+    const refreshed: SimulationSnapshot = {
+      ...sample,
+      tickCount: 25,
+      statistics: {
+        ...sample.statistics,
+        tickCount: 25,
+        vehiclesGenerated: 16,
+        vehiclesProcessed: 11,
+        vehiclesWaiting: 5,
+        totalWaitingTicks: 28,
+        averageWaitingTicks: 2.5,
+        processedPerLogicalTick: 0.44,
+      },
+    };
+
+    act(() => {
+      rerender(<IntersectionDashboard snapshot={refreshed} />);
+    });
+
+    const summary = screen.getByLabelText("Simulation statistics");
+    expect(within(summary).getByText("16")).toBeTruthy();
+    expect(within(summary).getByText("11")).toBeTruthy();
+    expect(within(summary).getByText("5")).toBeTruthy();
+    expect(within(summary).getByText("2.5")).toBeTruthy();
+    expect(screen.getByText("Logical tick:").parentElement?.textContent).toContain("25");
+  });
+
   it("preserves backend FIFO order and displays queue capacity", () => {
     render(<IntersectionDashboard snapshot={sample} />);
 
