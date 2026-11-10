@@ -48,3 +48,13 @@ synchronization boundary. `GET /api/simulation/state` obtains that snapshot from
 the single shared service and wraps the serialized object in the common Issue #9
 HTTP success envelope. The serializer itself remains framework-independent and
 returns data only.
+
+## Frontend status
+
+The selected consumer is a React, TypeScript, Vite and Tailwind CSS browser
+frontend served through the same public origin as the API, with a reverse proxy
+routing the API path to Crow. This is the target architecture; no frontend
+source, dashboard, live state rendering, accessibility behavior or browser
+integration test is present in this repository. Browser integration and
+end-to-end acceptance remain pending. See [Current Web Architecture](Architecture.md)
+and the [Issue #12 demo-readiness checklist](Issue_12_Demo_Readiness.md).

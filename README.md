@@ -17,11 +17,12 @@ simulation core and a Crow HTTP server. The backend exposes JSON REST APIs for
 simulation state, lifecycle control, and configuration. It owns one
 `SimulationService`; `tms_core` remains independent of Crow and nlohmann-json.
 
-The browser frontend is a separate pending component and is not implemented in
-this repository. No frontend framework is selected here. The earlier Qt
-desktop prototype and Part-1 GUI-oriented specifications are historical and
-are not the current application architecture.
+The selected browser frontend stack is React, TypeScript, Vite and Tailwind
+CSS. This is an architecture decision only: frontend source and browser
+functionality are not implemented in this repository. The earlier Qt desktop
+prototype and Part-1 GUI-oriented specifications remain historical context.
 
 See [the current architecture](docs/Architecture.md),
-[REST API routes and build instructions](docs/REST_API.md), and
-[build and test instructions](BUILD_TESTING.md).
+[REST API routes and build instructions](docs/REST_API.md),
+[build and test instructions](BUILD_TESTING.md), and the
+[Issue #12 demo-readiness checklist](docs/Issue_12_Demo_Readiness.md).

@@ -255,8 +255,15 @@ ctest --test-dir build\release -C Release --output-on-failure
 | Release, `BUILD_API_SERVER=ON` | Passed | 12/12 passed |
 | Debug, `BUILD_API_SERVER=OFF` | Passed | 10/10 passed |
 
-These runs used Visual Studio 18 2026 x64. The active CMake configuration
-contains no Qt package lookup or desktop application target.
+These counts are recorded local execution results. The saved LastTest.log
+files do not include a source commit ID or source hash, so they cannot prove
+which exact source revision was built or whether every then-current uncommitted
+change was included. They are not Issue #10 acceptance results. No tests were
+rerun during Issue #12 documentation preparation. Treat the counts as
+provenance-limited local records, not revision-bound acceptance evidence.
+
+The active CMake configuration contains no Qt package lookup or desktop
+application target.
 
 ### 9.3 TC-10 input validation and safe configuration handling
 
@@ -298,8 +305,10 @@ CTest commands. The test checks remain active in Release builds.
 The API server is enabled by default. Its build and run commands, including
 Debug, Release, and core-only configurations, are maintained in
 [REST API documentation](docs/REST_API.md). Starting the server does not start
-the simulation; use the documented start endpoint to begin ticks. The browser
-frontend remains a separate pending component.
+the simulation; use the documented start endpoint to begin ticks. The selected
+browser frontend stack is React, TypeScript, Vite and Tailwind CSS. It remains
+unimplemented; browser integration and acceptance checks are listed in the
+Issue #12 demo-readiness checklist.
 
 The legacy Qt prototype is retained at `legacy/qt-prototype/gui_main.cpp` for
 historical reference; it is not a CMake target or the application frontend.
@@ -326,3 +335,22 @@ CTest registers ten core tests, including `simulation_service_test` and
 name for core model regression coverage). With `BUILD_API_SERVER=ON`, CTest
 also registers `simulation_http_server_test` and
 `simulation_state_serializer_test`.
+
+## 10. Issue #12 documentation and demo readiness
+
+The target frontend stack is React, TypeScript, Vite and Tailwind CSS. This
+selection does not mean the browser application exists. Frontend source,
+browser/API integration, UI responsiveness, keyboard accessibility and
+end-to-end acceptance remain pending.
+
+Previously inspected local CTest records show Debug 12/12, Release 12/12, and
+core-only Debug 10/10 passing. Their logs contain no source commit ID or source
+hash and cannot conclusively tie all four uncommitted changes in the separate
+Issue #9 worktree to those builds. They are not Issue #10 acceptance results.
+No tests were rerun for this documentation work.
+
+Issue #10 remains open and owned by another team member. Await its actual
+revision-bound C++ regression results, frontend/browser integration, control
+and configuration demonstrations, accessibility/responsiveness checks, and
+end-to-end demo evidence. Do not mark Issue #12 complete from documentation
+preparation alone. See the Issue #12 Demo Readiness checklist.

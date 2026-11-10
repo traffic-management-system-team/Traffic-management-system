@@ -30,3 +30,14 @@ The historical diagrams are mapped to the Part-1 SRS requirements and SAD
 components. Editable source and rendered diagrams remain under `diagrams/`.
 The Part-1 SRS, SAD, test plan, sprint backlog, and work-distribution
 documents in `docs/` are retained unchanged as historical records.
+
+## Current web target
+
+The selected frontend stack is React, TypeScript, Vite and Tailwind CSS. This
+selection does not indicate that a frontend has been implemented. The active
+repository contains the C++17 simulation core and Crow REST backend; browser
+views, controls, accessibility and end-to-end acceptance remain pending. The
+legacy Qt prototype is archived and is not the current application UI.
+
+See [Current Web Architecture](docs/Architecture.md) and the
+[Issue #12 demo-readiness checklist](docs/Issue_12_Demo_Readiness.md).

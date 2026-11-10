@@ -2,11 +2,12 @@
 
 ## Status and scope
 
-The target application architecture is a browser-based frontend communicating
-with the C++ backend over HTTP REST APIs using JSON. This repository implements
-the simulation core and backend API host; it does **not** contain the browser
-frontend. Frontend implementation is a separate pending component. No frontend
-framework is selected or implied by this architecture.
+The selected target architecture is a React, TypeScript, Vite and Tailwind CSS
+browser frontend communicating with the C++17 backend over JSON REST APIs.
+This repository implements the simulation core and Crow API host; it does
+**not** contain frontend source or browser functionality. React, TypeScript,
+Vite and Tailwind CSS are selected technologies, not implemented components.
+Frontend integration and acceptance testing remain pending.
 
 The GUI-based Part-1 SRS, SAD, test plan, sprint records, and UML diagrams are
 historical design artifacts for the earlier desktop prototype. They remain
@@ -35,8 +36,9 @@ Crow HTTP host
                                                  tms_core
 ```
 
-- **Frontend:** A browser application will present controls and state to the
-  operator and call the backend REST endpoints. It is not implemented here.
+- **Frontend (selected, pending):** React, TypeScript, Vite and Tailwind CSS
+  are the target stack. The browser dashboard, controls, configuration form,
+  accessible interactions and API integration are not implemented here.
 - **HTTP host and adapter:** One Crow server registers the six approved
   endpoints. The adapter translates control/configuration HTTP requests into
   the existing framework-neutral `SimulationControlApi` calls. The state route
@@ -61,7 +63,8 @@ For the initial deployment, serve the browser frontend and REST API through the
 same public origin. A reverse proxy should serve the frontend and route requests
 under `/api/` to the Crow backend. Browser clients call paths such as
 `/api/simulation/state` on that origin; the proxy forwards those API requests
-to the backend. The frontend remains a separate pending component.
+to the backend. The selected React, TypeScript, Vite and Tailwind CSS frontend
+remains pending implementation and browser verification.
 
 The backend rejects cross-origin browser requests. Hosting the frontend and
 backend on separate origins therefore requires an explicitly approved CORS
