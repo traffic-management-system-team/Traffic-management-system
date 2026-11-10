@@ -208,6 +208,28 @@ a:focus-visible {
     background-color 150ms ease;
 }
 
+.button-primary {
+  border: 1px solid rgb(103 232 249 / 35%);
+  border-radius: 0.85rem;
+  background: linear-gradient(135deg, rgb(8 145 178 / 75%), rgb(79 70 229 / 60%));
+  color: #ecfeff;
+  font-size: 0.8rem;
+  font-weight: 650;
+  transition:
+    border-color 150ms ease,
+    filter 150ms ease;
+}
+
+.button-primary:hover:not(:disabled) {
+  border-color: rgb(103 232 249 / 75%);
+  filter: brightness(1.12);
+}
+
+.button-secondary:disabled,
+.button-primary:disabled {
+  cursor: not-allowed;
+}
+
 .button-secondary:hover {
   border-color: rgb(103 232 249 / 55%);
   background: rgb(30 41 59 / 85%);

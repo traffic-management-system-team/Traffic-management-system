@@ -1,6 +1,8 @@
 import { BackendConnectionCard } from "./components/BackendConnectionCard";
+import { ConfigurationForm } from "./components/ConfigurationForm";
 import { BrandMark } from "./components/BrandMark";
 import { SectionNavigation } from "./components/SectionNavigation";
+import { SimulationControls } from "./components/SimulationControls";
 import { useBackendStatus } from "./hooks/useBackendStatus";
 
 const plannedAreas = [
@@ -11,8 +13,8 @@ const plannedAreas = [
   },
   {
     number: "02",
-    title: "Simulation controls",
-    description: "Lifecycle and configuration interactions are planned next.",
+    title: "Signal and queue view",
+    description: "Live signal phases and approach queues will be introduced next.",
   },
   {
     number: "03",
@@ -22,7 +24,30 @@ const plannedAreas = [
 ];
 
 export default function App() {
-  const { status, refresh } = useBackendStatus();
+  const {
+    status,
+    refresh,
+    isRefreshing,
+    pendingOperation,
+    actionError,
+    configurationError,
+    runAction,
+    updateConfiguration,
+    clearActionError,
+    clearConfigurationError,
+  } = useBackendStatus();
+  const snapshot =
+    status.kind === "connected"
+      ? status.snapshot
+      : status.kind === "error"
+        ? status.snapshot
+        : undefined;
+  const connected = status.kind === "connected";
+  const configurationLocked =
+    !snapshot ||
+    snapshot.state !== "stopped" ||
+    snapshot.tickCount !== 0 ||
+    snapshot.statistics.vehiclesGenerated !== 0;
 
   return (
     <div className="min-h-screen">
@@ -63,12 +88,38 @@ export default function App() {
               A clearer view of the system.
             </h1>
             <p className="mt-4 max-w-2xl text-base leading-7 text-slate-400">
-              The frontend foundation is connected to the authoritative C++ API.
-              Dashboard features will build on live backend data in later issues.
+              Simulation controls use the C++ API as the authority. Actions and
+              configuration are never simulated in the browser.
             </p>
           </section>
 
-          <BackendConnectionCard status={status} onRetry={() => void refresh()} />
+          <BackendConnectionCard
+            status={status}
+            onRetry={() => void refresh()}
+            isBusy={isRefreshing || pendingOperation !== null}
+          />
+
+          {snapshot && (
+            <div className="mt-6 grid gap-5 lg:grid-cols-[minmax(0,0.9fr)_minmax(0,1.1fr)]">
+              <SimulationControls
+                state={snapshot.state}
+                pendingOperation={pendingOperation}
+                connected={connected}
+                error={actionError}
+                onAction={(action) => void runAction(action)}
+                onDismissError={clearActionError}
+              />
+              <ConfigurationForm
+                acceptedConfig={snapshot.config}
+                locked={configurationLocked}
+                connected={connected}
+                busy={pendingOperation !== null || isRefreshing}
+                feedback={configurationError}
+                onSubmit={updateConfiguration}
+                onClearFeedback={clearConfigurationError}
+              />
+            </div>
+          )}
 
           <section
             id="planned"
@@ -86,8 +137,9 @@ export default function App() {
                 </h2>
               </div>
               <p className="max-w-md text-sm leading-6 text-slate-500">
-                This issue delivers the application shell and API client. The
-                simulation dashboard, controls, and statistics remain future work.
+                Controls and configuration are backend-driven. The intersection
+                dashboard, signal/queue display, and traffic statistics remain
+                future work.
               </p>
             </div>
 
