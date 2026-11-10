@@ -63,6 +63,28 @@ jobs:
       - run: npm test
       - run: npm run build
 
+  static-analysis:
+    name: Clang Static Analyzer
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install clang-tidy
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-tidy
+
+      - name: Configure with clang-tidy
+        run: >-
+          cmake -S . -B build-analysis
+          -DBUILD_API_SERVER=OFF
+          -DBUILD_TESTING=ON
+          -DCMAKE_CXX_COMPILER=clang++
+          -DCMAKE_CXX_CLANG_TIDY=clang-tidy
+
+      - name: Run static analysis while building core and tests
+        run: cmake --build build-analysis --parallel 2
+
   sanitizers:
     name: Core AddressSanitizer and UndefinedBehaviorSanitizer
     runs-on: ubuntu-latest
