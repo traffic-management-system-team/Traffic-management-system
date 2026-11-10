@@ -193,6 +193,14 @@ void SimulationHttpAdapter::registerRoutes(crow::SimpleApp& app) {
             return makeJsonMethodNotAllowedResponse("GET");
         }
 
+        if (request.body_too_large) {
+            return makeJsonErrorResponse(
+                413,
+                "PAYLOAD_TOO_LARGE",
+                "Request body exceeds the maximum allowed size."
+            );
+        }
+
         return stateResponse();
     });
 

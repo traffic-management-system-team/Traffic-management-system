@@ -100,7 +100,8 @@ HttpResponse sendRequest(
     const std::string& origin = {},
     const std::string& fetchSite = {},
     const std::string& forwardedProto = {},
-    const std::string& forwardedHost = {}
+    const std::string& forwardedHost = {},
+    bool chunkedTransfer = false
 ) {
     asio::io_context context;
     asio::ip::tcp::socket socket(context);
@@ -127,10 +128,38 @@ HttpResponse sendRequest(
     if (!forwardedHost.empty()) {
         request << "X-Forwarded-Host: " << forwardedHost << "\r\n";
     }
-    request << "Content-Length: " << body.size() << "\r\n"
-            << "Connection: close\r\n\r\n"
-            << body;
-    asio::write(socket, asio::buffer(request.str()));
+    if (chunkedTransfer) {
+        request << "Transfer-Encoding: chunked\r\n";
+    } else {
+        request << "Content-Length: " << body.size() << "\r\n";
+    }
+
+    request << "Connection: close\r\n\r\n";
+
+    if (chunkedTransfer) {
+        constexpr std::size_t chunkSize = 4096;
+        for (std::size_t offset = 0; offset < body.size();) {
+            const std::size_t length = std::min(
+                chunkSize, body.size() - offset
+            );
+
+            std::ostringstream chunkLength;
+            chunkLength << std::hex << length;
+            request << chunkLength.str() << "\r\n";
+            request.write(
+                body.data() + offset,
+                static_cast<std::streamsize>(length)
+            );
+            request << "\r\n";
+            offset += length;
+        }
+        request << "0\r\n\r\n";
+    } else {
+        request << body;
+    }
+
+    const std::string requestData = request.str();
+    asio::write(socket, asio::buffer(requestData));
 
     asio::streambuf responseBuffer;
     asio::read_until(socket, responseBuffer, "\r\n\r\n");
@@ -369,6 +398,25 @@ void testConfiguredPublicOrigin() {
             CHECK(response.body.find("\"code\":\"CROSS_ORIGIN_REQUEST\"") !=
                   std::string::npos);
         }
+        // Cross-origin rejection takes precedence over oversized-body rejection.
+        const std::string oversizedBody(
+            SimulationHttpLimits::MaxRequestBodyBytes + 1, 'x'
+        );
+        response = sendRequest(
+            server.port(), "GET", "/api/simulation/state",
+            oversizedBody, {}, "https://attacker.example:8443",
+            "same-origin", "https", "traffic.example:8443"
+        );
+        CHECK(response.status == 403);
+        CHECK(response.contentType == "application/json");
+
+        const auto oversizedOriginEnvelope =
+            nlohmann::json::parse(response.body);
+        CHECK(oversizedOriginEnvelope.at("success") == false);
+        CHECK(oversizedOriginEnvelope.at("data").is_null());
+        CHECK(oversizedOriginEnvelope.at("error").at("code") ==
+              "CROSS_ORIGIN_REQUEST");
+        CHECK(oversizedOriginEnvelope.at("error").at("message").is_string());
         CHECK(sendRequest(server.port(), "GET", "/api/simulation/state").status == 200);
         CHECK(server.stop());
     }
@@ -418,6 +466,17 @@ void testUnsupportedMethodsUseJsonEnvelope() {
 
     checkMethodNotAllowed(
         sendRequest(server.port(), "POST", "/api/simulation/state"), "GET"
+    );
+    // An oversized POST must return 405 before body-size validation.
+    const std::string oversizedPostBody(
+        SimulationHttpLimits::MaxRequestBodyBytes + 1, 'x'
+    );
+    checkMethodNotAllowed(
+        sendRequest(
+            server.port(), "POST", "/api/simulation/state",
+            oversizedPostBody
+        ),
+        "GET"
     );
     checkMethodNotAllowed(
         sendRequest(server.port(), "GET", "/api/simulation/config"), "PUT"
@@ -730,6 +789,97 @@ void testRequestBodySizeLimit() {
     CHECK(response.contentType == "application/json");
     CHECK(response.body.find("\"code\":\"PAYLOAD_TOO_LARGE\"") !=
           std::string::npos);
+    // Normal state GET must return the success envelope.
+    const auto stateBefore = getStateData(server.port());
+
+    // An oversized POST to a valid control route must be rejected before execution.
+    const std::string oversizedControlBody(
+        SimulationHttpLimits::MaxRequestBodyBytes + 1, 'x'
+    );
+    response = sendRequest(
+        server.port(), "POST", "/api/simulation/start",
+        oversizedControlBody
+    );
+    CHECK(response.status == 413);
+    CHECK(response.contentType == "application/json");
+
+    auto oversizedControlEnvelope = nlohmann::json::parse(response.body);
+    CHECK(oversizedControlEnvelope.at("success") == false);
+    CHECK(oversizedControlEnvelope.at("data").is_null());
+    CHECK(oversizedControlEnvelope.at("error").at("code") ==
+          "PAYLOAD_TOO_LARGE");
+    CHECK(getStateData(server.port()) == stateBefore);
+
+    response = sendRequest(
+        server.port(), "GET", "/api/simulation/state"
+    );
+    CHECK(response.status == 200);
+    CHECK(response.contentType == "application/json");
+
+    auto envelope = nlohmann::json::parse(response.body);
+    CHECK(envelope.at("success") == true);
+    CHECK(envelope.at("error").is_null());
+    CHECK(envelope.at("data") == stateBefore);
+
+    // Exactly 64 KiB is accepted.
+    const std::string stateBodyAtLimit(
+        SimulationHttpLimits::MaxRequestBodyBytes, ' '
+    );
+
+    response = sendRequest(
+        server.port(), "GET", "/api/simulation/state",
+        stateBodyAtLimit
+    );
+    CHECK(response.status == 200);
+    CHECK(response.contentType == "application/json");
+
+    envelope = nlohmann::json::parse(response.body);
+    CHECK(envelope.at("success") == true);
+    CHECK(envelope.at("error").is_null());
+    CHECK(envelope.at("data") == stateBefore);
+
+    // One byte above the limit is rejected.
+    response = sendRequest(
+        server.port(), "GET", "/api/simulation/state",
+        stateBodyAtLimit + " "
+    );
+    CHECK(response.status == 413);
+    CHECK(response.contentType == "application/json");
+
+    envelope = nlohmann::json::parse(response.body);
+    CHECK(envelope.at("success") == false);
+    CHECK(envelope.at("data").is_null());
+    CHECK(envelope.at("error").at("code") == "PAYLOAD_TOO_LARGE");
+    CHECK(envelope.at("error").at("message").is_string());
+
+    // Chunked transfer: exactly 64 KiB is accepted.
+    response = sendRequest(
+        server.port(), "GET", "/api/simulation/state",
+        stateBodyAtLimit, {}, {}, {}, {}, {}, true
+    );
+    CHECK(response.status == 200);
+    CHECK(response.contentType == "application/json");
+
+    envelope = nlohmann::json::parse(response.body);
+    CHECK(envelope.at("success") == true);
+    CHECK(envelope.at("error").is_null());
+    CHECK(envelope.at("data") == stateBefore);
+
+    // Chunked transfer: one byte above the limit is rejected.
+    response = sendRequest(
+        server.port(), "GET", "/api/simulation/state",
+        stateBodyAtLimit + " ", {}, {}, {}, {}, {}, true
+    );
+    CHECK(response.status == 413);
+    CHECK(response.contentType == "application/json");
+
+    envelope = nlohmann::json::parse(response.body);
+    CHECK(envelope.at("success") == false);
+    CHECK(envelope.at("data").is_null());
+    CHECK(envelope.at("error").at("code") == "PAYLOAD_TOO_LARGE");
+    CHECK(envelope.at("error").at("message").is_string());
+    // All requests above must leave simulation state unchanged.
+    CHECK(getStateData(server.port()) == stateBefore);
     CHECK(server.stop());
 }
 
