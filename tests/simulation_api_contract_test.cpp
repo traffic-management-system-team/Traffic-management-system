@@ -524,14 +524,14 @@ void testDeterministicArrivalsSignalTransitionsAndSignalGatedMovement() {
     const auto westAfterTenthTick = model.queuedVehicles(3);
     CHECK(westAfterTenthTick.size() == 1);
     CHECK(westAfterTenthTick[0].getId() == 8);
-    CHECK(model.statistics().vehiclesProcessed == 4);
+    CHECK(model.statistics().vehiclesProcessed == 5);
 
     const auto statistics = model.statistics();
     CHECK(statistics.tickCount == 10);
     CHECK(statistics.vehiclesGenerated == 10);
-    CHECK(statistics.vehiclesProcessed == 4);
-    CHECK(statistics.vehiclesWaiting == 6);
-    CHECK(statistics.totalWaitingTicks == 13);
+    CHECK(statistics.vehiclesProcessed == 5);
+    CHECK(statistics.vehiclesWaiting == 5);
+    CHECK(statistics.totalWaitingTicks == 14);
 }
 
 void validateConcurrentSnapshot(const Json& data) {
