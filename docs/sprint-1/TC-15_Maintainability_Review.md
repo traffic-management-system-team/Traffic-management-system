@@ -2,7 +2,7 @@
 
 ## Review scope
 
-This review evaluates the active C++ backend boundaries relevant to TC-15. It is a source/interface and CMake dependency review, not a claim that passing tests alone prove maintainability. The reviewed branch is `dinesh/issue-33-api-contract-tests`. The executable test source was verified at commit `162336e206390e74ac04be5bc2fe66ee17f3a1c2`; subsequent PR commits updated only traceability documentation.
+This review evaluates the active C++ backend boundaries relevant to TC-15. It is a source/interface and CMake dependency review, not a claim that passing tests alone prove maintainability. The reviewed branch is `dinesh/issue-33-api-contract-tests`. The initial REST contract test suite passed at commit `162336e206390e74ac04be5bc2`. Later commits added the independently tested statistics manager, dashboard aggregate metrics, responsive dashboard assertions, and CI; fresh verification of those later changes is pending.
 
 ## 1. Module boundaries and public interfaces
 
@@ -12,7 +12,7 @@ This review evaluates the active C++ backend boundaries relevant to TC-15. It is
 | Queue | `include/queue_manager.h`; `src/queue_manager.cpp` | Per-road FIFO storage, guarded dequeue, independent FIFO snapshots |
 | Signal | `src/TrafficSignal.h`, `src/TrafficSignal.cpp` | Individual signal state transitions and shared four-approach coordinator |
 | Traffic movement | `src/TrafficManager.h`, `src/TrafficManager.cpp` | Signal-gated dequeue for one configured approach |
-| Simulation model | `include/simulation_model.h`, `src/simulation_model.cpp` | Logical tick ordering, arrivals, movement coordination, signal phases and aggregate statistics |
+| Simulation model | `include/simulation_model.h`, `src/simulation_model.cpp` | Logical tick ordering, arrivals, movement coordination and signal phases; delegates counters/aggregate statistics to `SimulationStatisticsManager` |
 | Service | `include/simulation_service.h`, `src/simulation_service.cpp` | Authoritative model owner, scheduler worker, synchronization and copied snapshots |
 | Validation/configuration/control | `include/input_validator.h`, `include/config_controller.h`, `include/simulation_control_api.h`; matching `src/` implementations | Framework-neutral input/configuration and command policy |
 | Snapshot DTO/statistics | `include/simulation_dto.h`, `include/simulation_statistics.h` | Plain copied state/statistics structures; no HTTP types |
@@ -33,7 +33,7 @@ The active CMake graph has these production boundaries:
 - `tms_http`: HTTP adapter/server linked to `tms_core` and Crow; it privately links the state serializer.
 - `tms_api_server`: executable linked to `tms_http`.
 
-With `BUILD_TESTING=ON`, CMake registers ten core test targets. With `BUILD_API_SERVER=ON`, it adds three API-enabled targets: `simulation_http_server_test`, `simulation_state_serializer_test`, and `simulation_api_contract_test`, for thirteen total. With `BUILD_API_SERVER=OFF`, the core and its ten tests can be configured without fetching Crow, Asio or nlohmann-json.
+With `BUILD_TESTING=ON`, CMake registers eleven core test targets, including `simulation_statistics_manager_test`. With `BUILD_API_SERVER=ON`, it adds three API-enabled targets: `simulation_http_server_test`, `simulation_state_serializer_test`, and `simulation_api_contract_test`, for fourteen total. With `BUILD_API_SERVER=OFF`, the core and its eleven tests can be configured without fetching Crow, Asio or nlohmann-json.
 
 The API contract tests instantiate a real `SimulationService` and `SimulationHttpServer` bound to `127.0.0.1` and port `0`; they do not substitute mocked route handlers. The deterministic model test also calls `SimModel::tick()` directly to avoid wall-clock timing in logical-tick assertions.
 
@@ -61,7 +61,7 @@ The API contract tests instantiate a real `SimulationService` and `SimulationHtt
 - **NFR-05 — independently buildable/testable core modules.** Core production code remains a separate CMake target with separate module/service/statistics-manager test executables. The API integration tests use public service/server interfaces rather than requiring access to HTTP adapter internals. The latest revision adds one core test target; fresh results are pending as recorded in `RTM_TC_Mapping.csv`.
 
 
-## 6. Module test and build verification status
+## 5. Module test and build verification status
 
 The prior execution at commit `162336e206390e74ac04be5bc2fe66ee17f3a1c2` passed API-enabled Debug 13/13, API-enabled Release 13/13 and core-only Debug 10/10. That execution predates the addition of `SimulationStatisticsManager`, its standalone unit test, the dashboard aggregate metrics and the CI workflow. It is **not** evidence for the current branch head.
 
@@ -69,7 +69,7 @@ The refactor adds one core CTest target, so the expected current counts are elev
 
 The statistics-manager unit test independently exercises counter accumulation, per-approach ordering, snapshot aggregation, invalid enum handling and reset.
 
-## 7. Out of scope / evidence limits
+## 6. Out of scope / evidence limits
 
 The frontend dashboard is implemented and has Vitest component/hook coverage for four-approach signal/queue display, FIFO data, aggregate metrics, snapshot refresh, adaptive polling, keyboard form submission, accessible signal names and responsive CSS structure. The frontend quality checks are run by the new GitHub Actions job; until that job passes for the final head, no fresh workflow result is claimed.
 
