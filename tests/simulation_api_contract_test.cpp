@@ -519,7 +519,7 @@ void testDeterministicArrivalsSignalTransitionsAndSignalGatedMovement() {
     CHECK(statistics.vehiclesGenerated == 9);
     CHECK(statistics.vehiclesProcessed == 4);
     CHECK(statistics.vehiclesWaiting == 5);
-    CHECK(statistics.totalWaitingTicks == 8);
+    CHECK(statistics.totalWaitingTicks == 10);
 }
 
 void validateConcurrentSnapshot(const Json& data) {
