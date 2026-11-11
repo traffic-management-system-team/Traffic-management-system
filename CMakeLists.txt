@@ -71,7 +71,7 @@ if(BUILD_API_SERVER)
         PATCH_COMMAND
             "${GIT_EXECUTABLE}" -c
             core.whitespace=cr-at-eol,blank-at-eol,blank-at-eof,space-before-tab
-            apply --unidiff-zero --whitespace=error
+            apply --ignore-space-change --unidiff-zero --whitespace=error
             "${CMAKE_CURRENT_LIST_DIR}/patches/crow-request-body-limit.patch"
     )
     FetchContent_MakeAvailable(crow)
