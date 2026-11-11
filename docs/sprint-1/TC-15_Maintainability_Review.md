@@ -57,21 +57,31 @@ The API contract tests instantiate a real `SimulationService` and `SimulationHtt
 
 ## 4. TC-15 assessment
 
-- **NFR-04 — modular implementation completed; latest test verification pending.** Vehicle, queue, signal, movement, service, validation/control, statistics aggregation and serialization have identifiable module boundaries. Statistics counters, waiting-time totals and aggregate snapshot calculations live in the separately testable `SimulationStatisticsManager`. `SimModel` remains the intended intersection coordinator rather than implementing the statistics calculations itself.
-- **NFR-05 — independently buildable/testable core modules.** Core production code remains a separate CMake target with separate module/service/statistics-manager test executables. The API integration tests use public service/server interfaces rather than requiring access to HTTP adapter internals. The latest revision adds one core test target; fresh results are pending as recorded in `RTM_TC_Mapping.csv`.
+- **NFR-04 — modular implementation completed; latest-head module tests passed.** Vehicle, queue, signal, movement, service, validation/control, statistics aggregation and serialization have identifiable module boundaries. Statistics counters, waiting-time totals and aggregate snapshot calculations live in the separately testable `SimulationStatisticsManager`. `SimModel` remains the intended intersection coordinator rather than implementing the statistics calculations itself.
+- **NFR-05 — independently buildable/testable core modules.** Core production code remains a separate CMake target with separate module/service/statistics-manager test executables. The API integration tests use public service/server interfaces rather than requiring access to HTTP adapter internals. Latest-head API-enabled builds passed 14/14 tests in Windows and Ubuntu Debug/Release; the core-only sanitizer build passed all 11 core tests.
 
 
 ## 5. Module test and build verification status
 
-The prior full-project execution at commit `162336e206390e74ac04be5bc2fe66ee17f3a1c2` passed API-enabled Debug 13/13, API-enabled Release 13/13 and core-only Debug 10/10. That execution predates the addition of `SimulationStatisticsManager`, its standalone unit test, the dashboard aggregate metrics and the CI workflow. It is **not** evidence for the current branch head.
+The older local full-project execution at commit `162336e206390e74ac04be5bc2fe66ee17f3a1c2` (13/13 API-enabled Debug, 13/13 API-enabled Release and 10/10 core-only Debug) predates the statistics-manager refactor and is retained as historical evidence only.
 
-The refactor adds one core CTest target, so the expected current counts are eleven core targets, three API-enabled targets, fourteen API-enabled tests total. Fresh Debug, Release, core-only and frontend runs must complete on the current branch head before those counts are marked passed. The Windows/Ubuntu CI matrix, full-core Clang ASan/UBSan job and clang-tidy clang-analyzer job are still queued in GitHub Actions run #28.
+**Latest verified implementation commit:** `ce670996581b752816d3043d60ee1e18bcc62d48`. GitHub Actions PR run [#38](https://github.com/traffic-management-system-team/Traffic-management-system/actions/runs/42949329618) completed with all seven jobs successful:
 
-The statistics-manager unit test independently exercises counter accumulation, per-approach ordering, snapshot aggregation, the generated = processed + waiting invariant, invalid enum handling and reset. On the current head (`6463e3e1fff028f99ed6db2eaf4360847d8e950c`), the exact manager source/header/test were also compiled and executed in an isolated Linux harness: GCC 14.2 with `-std=c++17 -Wall -Wextra -Wpedantic -Werror` passed, and Clang 17 with AddressSanitizer + UndefinedBehaviorSanitizer and leak detection enabled passed. This is focused manager-module evidence only; it is not a full CMake/CTest or full-core sanitizer run.
+- Windows Debug: configure/build passed; CTest 14/14.
+- Windows Release: configure/build passed; CTest 14/14.
+- Ubuntu Debug: configure/build passed; CTest 14/14.
+- Ubuntu Release: configure/build passed; CTest 14/14.
+- Frontend: `npm run type-check` passed; Vitest 36/36 across four test files; `npm run build` passed.
+- Core-only Clang ASan/UBSan build and CTest: 11/11 passed.
+- Clang static-analysis job completed successfully. It emitted two enum-cast diagnostics in the deliberate invalid-enum negative tests (`tests/test_traffic.cpp:112` and `tests/simulation_statistics_manager_test.cpp:72`). The workflow job passed, but this is not described as a warning-free analysis.
+
+The API-enabled matrix runs the 11 core tests plus three API-enabled tests (14 total) in all four platform/configuration combinations. The sanitizer/static-analysis jobs are scoped to the core-only target set.
+
+The statistics-manager unit test covers counter accumulation, per-approach ordering, snapshot aggregation, the generated = processed + waiting invariant, invalid enum handling and reset. The independent TC-15 source/interface review records module responsibility and CMake boundaries.
 
 ## 6. Out of scope / evidence limits
 
-The frontend dashboard is implemented and has Vitest component/hook coverage for four-approach signal/queue display, FIFO data, aggregate metrics, snapshot refresh, adaptive polling, keyboard form submission, accessible signal names and responsive CSS structure. The frontend quality checks are run by the new GitHub Actions job; until that job passes for the final head, no fresh workflow result is claimed.
+The frontend dashboard is implemented and has Vitest component/hook coverage for four-approach signal/queue display, FIFO data, aggregate metrics, snapshot refresh, adaptive polling, keyboard form submission, accessible signal names and responsive CSS structure. The latest-head frontend type-check, all 36 tests, and production build passed in run #38.
 
-A full cross-browser Playwright suite and manual screen-reader/accessibility audit are not present. No real-browser latency/frame-rate benchmark is claimed for NFR-02. The Windows/Ubuntu workflow is intended to supply NFR-06 cross-platform build evidence when it passes. The Linux ASan/UBSan job supplies dynamic evidence for SEC-04 when it passes, but does not replace a static-analysis report or ThreadSanitizer run.
+A full cross-browser Playwright suite and manual screen-reader/accessibility audit are not present. No real-browser latency/frame-rate benchmark is claimed for NFR-02. The Windows/Ubuntu Debug/Release matrix passed for NFR-06. The Linux ASan/UBSan job passed 11/11 core tests and the Clang static-analysis job completed successfully, with the two test-code enum-cast diagnostics recorded above. No ThreadSanitizer run is included.
 
