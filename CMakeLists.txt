@@ -148,6 +148,7 @@ if(BUILD_TESTING)
     if(BUILD_API_SERVER)
         add_tms_test(simulation_http_server_test tests/simulation_http_server_test.cpp)
         target_link_libraries(simulation_http_server_test PRIVATE tms_http tms_state_serializer)
+        set_tests_properties(simulation_http_server_test PROPERTIES TIMEOUT 180)
 
         add_tms_test(
             simulation_state_serializer_test
