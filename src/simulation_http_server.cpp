@@ -4,6 +4,8 @@
 #include "simulation_http_adapter.h"
 #include "simulation_http_response.h"
 
+#include <asio.hpp>
+
 #include <chrono>
 #include <csignal>
 #include <cstdio>
@@ -43,6 +45,16 @@ public:
     bool start(std::string& error) {
         std::lock_guard<std::mutex> lock(lifecycleMutex_);
         error.clear();
+
+        // Validate the numeric bind address before launching Crow's worker.
+        // Crow can otherwise keep waiting for startup after an invalid address
+        // fails inside its asynchronous server thread.
+        try {
+            (void)asio::ip::make_address(bindAddress_);
+        } catch (const std::exception&) {
+            error = "Invalid HTTP server bind address.";
+            return false;
+        }
 
         if (!originPolicy_.configureFromEnvironment(error)) {
             return false;
