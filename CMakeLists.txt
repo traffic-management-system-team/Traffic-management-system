@@ -21,6 +21,7 @@ add_library(tms_core
     src/TrafficSignal.cpp
     src/simulation_model.cpp
     src/simulation_service.cpp
+    src/simulation_statistics_manager.cpp
     src/input_validator.cpp
     src/config_controller.cpp
     src/simulation_control_api.cpp
@@ -68,7 +69,9 @@ if(BUILD_API_SERVER)
         GIT_TAG fcf0c360b15fc245d884c71340b08ac20403ba36
         GIT_SHALLOW FALSE
         PATCH_COMMAND
-            "${GIT_EXECUTABLE}" apply --unidiff-zero --whitespace=error
+            "${GIT_EXECUTABLE}" -c
+            core.whitespace=cr-at-eol,blank-at-eol,blank-at-eof,space-before-tab
+            apply --ignore-space-change --unidiff-zero --whitespace=error
             "${CMAKE_CURRENT_LIST_DIR}/patches/crow-request-body-limit.patch"
     )
     FetchContent_MakeAvailable(crow)
@@ -139,11 +142,13 @@ if(BUILD_TESTING)
     add_tms_test(gui_model_test tests/gui_model_test.cpp)
     add_tms_test(input_validator_test tests/input_validator_test.cpp)
     add_tms_test(simulation_service_test tests/simulation_service_test.cpp)
+    add_tms_test(simulation_statistics_manager_test tests/simulation_statistics_manager_test.cpp)
     add_tms_test(simulation_control_api_test tests/simulation_control_api_test.cpp)
 
     if(BUILD_API_SERVER)
         add_tms_test(simulation_http_server_test tests/simulation_http_server_test.cpp)
         target_link_libraries(simulation_http_server_test PRIVATE tms_http tms_state_serializer)
+        set_tests_properties(simulation_http_server_test PROPERTIES TIMEOUT 180)
 
         add_tms_test(
             simulation_state_serializer_test
@@ -152,6 +157,15 @@ if(BUILD_TESTING)
         target_link_libraries(
             simulation_state_serializer_test
             PRIVATE tms_state_serializer
+        )
+
+        add_tms_test(
+            simulation_api_contract_test
+            tests/simulation_api_contract_test.cpp
+        )
+        target_link_libraries(
+            simulation_api_contract_test
+            PRIVATE tms_http tms_state_serializer
         )
     endif()
 endif()

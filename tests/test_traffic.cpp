@@ -35,6 +35,30 @@ void testIndependentSignal() {
 
     check(!signal.changeState(SignalState::YELLOW),
           "RED -> YELLOW is rejected");
+    check(!signal.changeState(SignalState::RED),
+          "RED -> RED is rejected");
+    check(signal.getState() == SignalState::RED,
+          "Rejected RED transitions preserve the current state");
+
+    check(signal.changeState(SignalState::GREEN),
+          "RED -> GREEN can be re-entered after returning to RED");
+    check(!signal.changeState(SignalState::RED),
+          "GREEN -> RED is rejected");
+    check(!signal.changeState(SignalState::GREEN),
+          "GREEN -> GREEN is rejected");
+    check(signal.getState() == SignalState::GREEN,
+          "Rejected GREEN transitions preserve the current state");
+
+    check(signal.changeState(SignalState::YELLOW),
+          "GREEN -> YELLOW can be re-entered");
+    check(!signal.changeState(SignalState::GREEN),
+          "YELLOW -> GREEN is rejected");
+    check(!signal.changeState(SignalState::YELLOW),
+          "YELLOW -> YELLOW is rejected");
+    check(signal.getState() == SignalState::YELLOW,
+          "Rejected YELLOW transitions preserve the current state");
+    check(signal.changeState(SignalState::RED),
+          "YELLOW -> RED can complete the valid cycle");
 
     signal.reset();
     check(signal.getState() == SignalState::RED,

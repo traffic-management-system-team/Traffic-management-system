@@ -88,6 +88,55 @@ describe("IntersectionDashboard", () => {
     expect(screen.getByText("YELLOW")).toBeTruthy();
   });
 
+  it("renders authoritative aggregate statistics from each refreshed snapshot", () => {
+    const { rerender } = render(
+      <IntersectionDashboard snapshot={sample} />,
+    );
+
+    const refreshed: SimulationSnapshot = {
+      ...sample,
+      tickCount: 25,
+      statistics: {
+        ...sample.statistics,
+        tickCount: 25,
+        vehiclesGenerated: 16,
+        vehiclesProcessed: 11,
+        vehiclesWaiting: 5,
+        totalWaitingTicks: 28,
+        averageWaitingTicks: 2.5,
+        processedPerLogicalTick: 0.44,
+      },
+    };
+
+    act(() => {
+      rerender(<IntersectionDashboard snapshot={refreshed} />);
+    });
+
+    const summary = screen.getByLabelText("Simulation statistics");
+    expect(within(summary).getByText("16")).toBeTruthy();
+    expect(within(summary).getByText("11")).toBeTruthy();
+    expect(within(summary).getByText("5")).toBeTruthy();
+    expect(within(summary).getByText("2.5")).toBeTruthy();
+    expect(screen.getByText("Logical tick:").parentElement?.textContent).toContain("25");
+  });
+
+  it("uses responsive grids for summary metrics and approach cards", () => {
+    render(<IntersectionDashboard snapshot={sample} />);
+
+    const summary = screen.getByLabelText("Simulation statistics");
+    expect(summary.className).toContain("grid-cols-2");
+    expect(summary.className).toContain("sm:grid-cols-4");
+
+    const northCard = screen
+      .getByRole("heading", { name: "North" })
+      .closest("article");
+    expect(northCard).toBeTruthy();
+
+    const approachGrid = northCard?.parentElement;
+    expect(approachGrid?.className).toContain("sm:grid-cols-2");
+    expect(approachGrid?.className).toContain("xl:grid-cols-4");
+  });
+
   it("preserves backend FIFO order and displays queue capacity", () => {
     render(<IntersectionDashboard snapshot={sample} />);
 

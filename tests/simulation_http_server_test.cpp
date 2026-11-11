@@ -1047,19 +1047,26 @@ void testShutdownWhileWaiterAndRequestsAreActive() {
 
 } // namespace
 
+
+void runTest(const char* name, void (*test)()) {
+    std::cerr << "[ RUN      ] " << name << '\n' << std::flush;
+    test();
+    std::cerr << "[       OK ] " << name << '\n' << std::flush;
+}
+
 int main() {
     ScopedPublicOriginEnvironment publicOriginEnvironment;
     CHECK(setPublicOrigin(nullptr));
-    testConfiguredPublicOrigin();
-    testUnsupportedMethodsUseJsonEnvelope();
-    testControlRoutesAndResponsePassthrough();
-    testMalformedAndWrongTypeJson();
-    testContentTypeAndBodyRequirements();
-    testRequestBodySizeLimit();
-    testConcurrentRequestsAndServiceScheduler();
-    testStartupFailureAndShutdown();
-    testServerShutdownDoesNotResetSimulation();
-    testShutdownWhileWaiterAndRequestsAreActive();
+    runTest("configured public origin", testConfiguredPublicOrigin);
+    runTest("unsupported methods", testUnsupportedMethodsUseJsonEnvelope);
+    runTest("control routes and response passthrough", testControlRoutesAndResponsePassthrough);
+    runTest("malformed and wrong-type JSON", testMalformedAndWrongTypeJson);
+    runTest("content type and body requirements", testContentTypeAndBodyRequirements);
+    runTest("request body size limit", testRequestBodySizeLimit);
+    runTest("concurrent requests and service scheduler", testConcurrentRequestsAndServiceScheduler);
+    runTest("startup failure and shutdown", testStartupFailureAndShutdown);
+    runTest("server shutdown preserves simulation", testServerShutdownDoesNotResetSimulation);
+    runTest("shutdown with active waiters and requests", testShutdownWhileWaiterAndRequestsAreActive);
 
     std::cout << "All simulation_http_server tests passed.\n";
     return EXIT_SUCCESS;
