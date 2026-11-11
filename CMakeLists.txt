@@ -69,7 +69,9 @@ if(BUILD_API_SERVER)
         GIT_TAG fcf0c360b15fc245d884c71340b08ac20403ba36
         GIT_SHALLOW FALSE
         PATCH_COMMAND
-            "${GIT_EXECUTABLE}" apply --unidiff-zero --whitespace=error
+            "${GIT_EXECUTABLE}" -c
+            core.whitespace=cr-at-eol,blank-at-eol,blank-at-eof,space-before-tab
+            apply --unidiff-zero --whitespace=error
             "${CMAKE_CURRENT_LIST_DIR}/patches/crow-request-body-limit.patch"
     )
     FetchContent_MakeAvailable(crow)
