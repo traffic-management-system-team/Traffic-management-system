@@ -1,0 +1,82 @@
+name: Issue 34 browser integration
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "CMakeLists.txt"
+      - "include/**"
+      - "src/**"
+      - "patches/**"
+      - "frontend/**"
+      - ".github/workflows/issue-34-browser-e2e.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  browser-e2e:
+    name: Real C++ API / Chromium browser tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22.17"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Chromium and operating-system dependencies
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Configure real C++ REST API
+        run: cmake -S . -B build-e2e -DBUILD_API_SERVER=ON -DBUILD_TESTING=OFF
+
+      - name: Build real C++ REST API
+        run: cmake --build build-e2e --target tms_api_server --parallel 2
+
+      - name: Start API and wait for its state endpoint
+        shell: bash
+        run: |
+          ./build-e2e/tms_api_server > "$RUNNER_TEMP/tms-api.log" 2>&1 &
+          echo $! > "$RUNNER_TEMP/tms-api.pid"
+          for attempt in {1..45}; do
+            if curl --fail --silent http://127.0.0.1:18080/api/simulation/state > /dev/null; then
+              echo "C++ REST API is ready."
+              exit 0
+            fi
+            sleep 1
+          done
+          cat "$RUNNER_TEMP/tms-api.log"
+          echo "C++ REST API did not become ready."
+          exit 1
+
+      - name: Run real-backend browser tests
+        working-directory: frontend
+        env:
+          CI: "true"
+          API_PROXY_TARGET: http://127.0.0.1:18080
+        run: npm run test:e2e
+
+      - name: Stop C++ REST API
+        if: always()
+        shell: bash
+        run: |
+          if [ -f "$RUNNER_TEMP/tms-api.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/tms-api.pid")" 2>/dev/null || true
+          fi
+
+      - name: Upload API log if browser validation fails
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: issue-34-api-log
+          path: ${{ runner.temp }}/tms-api.log
+          if-no-files-found: ignore

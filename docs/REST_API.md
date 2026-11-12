@@ -89,9 +89,9 @@ sources.
 
 `BUILD_API_SERVER=OFF` skips Crow and Asio entirely, leaving `tms_core` and its
 tests buildable without the HTTP dependencies. Qt is not an active dependency
-or build target. The React, TypeScript, Vite and Tailwind CSS frontend scaffold
-is maintained separately in `frontend/`; the full browser dashboard and
-controls are still pending.
+or build target. The React, TypeScript, Vite and Tailwind CSS frontend is
+maintained separately in `frontend/` and includes the live intersection
+dashboard, lifecycle controls and configuration form.
 
 ## Browser deployment
 
@@ -99,9 +99,11 @@ The recommended initial deployment serves the browser frontend and REST backend
 through the same public origin. Put a reverse proxy in front of both: serve the
 frontend from that origin and route `/api/` requests to the Crow backend. The
 browser calls the existing API endpoints on the shared origin. The
-React/TypeScript/Vite scaffold and typed API client are implemented. The
-complete dashboard, simulation controls, and remaining browser acceptance work
-are pending under subsequent issues.
+React/TypeScript/Vite dashboard and typed API client are implemented. The
+frontend uses the Vite same-origin proxy for local development; it preserves the
+request Host and Origin headers expected by the backend. Real-backend Chromium
+browser integration, responsive viewport checks and keyboard/signal-label checks
+are automated by `.github/workflows/issue-34-browser-e2e.yml`.
 
 The backend rejects cross-origin browser requests, and this policy is not
 weakened here. For a TLS-terminating reverse proxy, set the backend process
@@ -298,12 +300,12 @@ Validation on Windows with Visual Studio 18 / MSVC 19.51.36256 and Windows SDK
 | Debug, `BUILD_API_SERVER=OFF` | Passed | 10/10 passed |
 
 The current CMake configuration has no Qt package lookup or desktop GUI target.
-The React, TypeScript, Vite and Tailwind CSS frontend scaffold is maintained in
+The React, TypeScript, Vite and Tailwind CSS frontend is maintained in
 `frontend/` and is not included in these backend builds. Its typed client uses
 the same-origin `/api` path; see the [frontend setup guide](../frontend/README.md).
-The lifecycle controls and configuration form are implemented in the frontend;
-the full browser dashboard, live backend demonstration, and acceptance evidence
-remain pending.
+The Issue #34 browser workflow builds this API server, starts it on loopback, and
+exercises the dashboard through Chromium and the Vite proxy. The workflow is
+separate from the CTest results above.
 
 The saved CTest records do not contain a source commit ID or source hash. They
 cannot conclusively identify the exact source revision or prove whether all

@@ -28,7 +28,7 @@ npm test
 npm run build
 ```
 
-The GitHub Actions Issue #33 workflow runs all three checks. It also runs the component and hook tests on every matching pull request.
+The GitHub Actions Issue #33 workflow runs all three checks. The Issue #34 workflow additionally builds the C++ REST API and runs Chromium browser tests against that live server.
 
 ## Implemented dashboard and controls
 
@@ -53,4 +53,20 @@ The dashboard uses responsive grid breakpoints: statistics render in two columns
 - `useBackendStatus.test.ts`: adaptive polling at running/paused/stopped intervals and interval changes across state transitions.
 - `client.test.ts`: typed REST envelope, endpoint, HTTP, network and malformed-response behavior.
 
-These are automated React component/hook and API-client tests in Vitest/jsdom. They provide regression coverage for dashboard rendering, refresh behavior, responsive class structure and keyboard semantics; they are not a full cross-browser Playwright end-to-end or manual accessibility audit. Production deployment/browser compatibility still needs a deployment-environment smoke test.
+These Vitest/jsdom tests cover component, hook and API-client behavior. They do not replace browser integration tests against the real C++ service.
+
+## Real-backend browser tests
+
+The Issue #34 Playwright suite exercises the dashboard through Chromium and the Vite same-origin proxy, with requests reaching the real C++ REST API. It verifies configuration submission, generated vehicle IDs/counts, descriptive signal labels, lifecycle controls, keyboard submission/activation, and mobile/tablet/desktop layouts. It does not mock `/api` responses.
+
+For local execution, build and start the C++ API server using the instructions in [REST API documentation](../docs/REST_API.md). Keep it running at `http://127.0.0.1:18080`, then run from `frontend/`:
+
+```powershell
+npm ci
+npm install --no-save --package-lock=false @playwright/test@1.56.1
+npx playwright install chromium
+$env:API_PROXY_TARGET = "http://127.0.0.1:18080"
+npm run test:e2e
+```
+
+The Playwright runner is installed separately from the application dependency lockfile so the existing `npm ci` installation remains unchanged. The CI workflow pins the same runner version and installs Chromium with its operating-system dependencies. Automated browser coverage currently targets Chromium; a deployment-environment smoke test and a broader manual accessibility audit remain useful additional checks.

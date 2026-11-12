@@ -72,6 +72,7 @@ function ApproachCard({
             {approach.name}
           </h3>
         </div>
+
         {active && <span className="active-tag">Active approach</span>}
       </div>
 
@@ -80,6 +81,7 @@ function ApproachCard({
           signal={approach.signal}
           approachName={approach.name}
         />
+
         <div className="text-right">
           <p className="text-2xl font-semibold tabular-nums text-white">
             {approach.queueLength}
@@ -125,6 +127,7 @@ function ApproachCard({
             {approach.vehicles.map((vehicle, index) => (
               <li key={`${vehicle.id}-${index}`} className="vehicle-row">
                 <span className="vehicle-position">{index + 1}</span>
+
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-semibold text-slate-100">
                     Vehicle #{vehicle.id}
@@ -133,6 +136,7 @@ function ApproachCard({
                     {vehicle.type} · {vehicle.lane}
                   </span>
                 </span>
+
                 {index === 0 && (
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-cyan-300">
                     Front
@@ -202,6 +206,7 @@ export function IntersectionDashboard({ snapshot }: Props) {
 
   return (
     <section
+      id="intersection"
       className="mt-6 space-y-5"
       aria-labelledby="intersection-title"
     >
@@ -238,42 +243,60 @@ export function IntersectionDashboard({ snapshot }: Props) {
           aria-label="Simulation statistics"
         >
           <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
-            <dt className="text-xs font-medium text-slate-400">Vehicles generated</dt>
+            <dt className="text-xs font-medium text-slate-400">
+              Vehicles generated
+            </dt>
             <dd className="mt-2 text-2xl font-semibold tabular-nums text-white">
               {snapshot.statistics.vehiclesGenerated}
             </dd>
           </div>
+
           <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
-            <dt className="text-xs font-medium text-slate-400">Vehicles processed</dt>
+            <dt className="text-xs font-medium text-slate-400">
+              Vehicles processed
+            </dt>
             <dd className="mt-2 text-2xl font-semibold tabular-nums text-white">
               {snapshot.statistics.vehiclesProcessed}
             </dd>
           </div>
+
           <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
-            <dt className="text-xs font-medium text-slate-400">Vehicles waiting</dt>
+            <dt className="text-xs font-medium text-slate-400">
+              Vehicles waiting
+            </dt>
             <dd className="mt-2 text-2xl font-semibold tabular-nums text-white">
               {snapshot.statistics.vehiclesWaiting}
             </dd>
           </div>
+
           <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
-            <dt className="text-xs font-medium text-slate-400">Average wait · ticks</dt>
+            <dt className="text-xs font-medium text-slate-400">
+              Average wait · ticks
+            </dt>
             <dd className="mt-2 text-2xl font-semibold tabular-nums text-white">
               {snapshot.statistics.averageWaitingTicks.toFixed(1)}
             </dd>
           </div>
+
           <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
-            <dt className="text-xs font-medium text-slate-400">Total waiting time · ticks</dt>
+            <dt className="text-xs font-medium text-slate-400">
+              Total waiting time · ticks
+            </dt>
             <dd className="mt-2 text-2xl font-semibold tabular-nums text-white">
               {snapshot.statistics.totalWaitingTicks}
             </dd>
           </div>
+
           <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
-            <dt className="text-xs font-medium text-slate-400">Processed / logical tick</dt>
+            <dt className="text-xs font-medium text-slate-400">
+              Processed / logical tick
+            </dt>
             <dd className="mt-2 text-2xl font-semibold tabular-nums text-white">
               {snapshot.statistics.processedPerLogicalTick.toFixed(2)}
             </dd>
           </div>
         </dl>
+
         <p className="mt-3 text-xs leading-5 text-slate-500">
           Average wait includes completed vehicles only and is zero before the
           first vehicle is processed. Processed / logical tick is a cumulative
