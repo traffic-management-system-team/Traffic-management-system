@@ -117,7 +117,86 @@ describe("IntersectionDashboard", () => {
     expect(within(summary).getByText("11")).toBeTruthy();
     expect(within(summary).getByText("5")).toBeTruthy();
     expect(within(summary).getByText("2.5")).toBeTruthy();
+    expect(within(summary).getByText("28")).toBeTruthy();
+    expect(within(summary).getByText("0.44")).toBeTruthy();
+    expect(within(summary).getByText("Total waiting time · ticks")).toBeTruthy();
+    expect(within(summary).getByText("Processed / logical tick")).toBeTruthy();
     expect(screen.getByText("Logical tick:").parentElement?.textContent).toContain("25");
+  });
+
+  it("shows zero average wait when no vehicles have been processed", () => {
+    render(<IntersectionDashboard snapshot={sample} />);
+
+    const summary = screen.getByLabelText("Simulation statistics");
+    expect(within(summary).getByText("0.0")).toBeTruthy();
+    expect(within(summary).getAllByText("0")).toHaveLength(2);
+    expect(
+      screen.getByText(/Average wait includes completed vehicles only/),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/not a per-second throughput/),
+    ).toBeTruthy();
+  });
+
+  it("clears every aggregate statistic when a reset snapshot arrives", () => {
+    const beforeReset: SimulationSnapshot = {
+      ...sample,
+      tickCount: 25,
+      statistics: {
+        ...sample.statistics,
+        tickCount: 25,
+        vehiclesGenerated: 16,
+        vehiclesProcessed: 11,
+        vehiclesWaiting: 5,
+        totalWaitingTicks: 28,
+        averageWaitingTicks: 2.5,
+        processedPerLogicalTick: 0.44,
+      },
+    };
+    const { rerender } = render(
+      <IntersectionDashboard snapshot={beforeReset} />,
+    );
+
+    const resetSnapshot: SimulationSnapshot = {
+      ...sample,
+      state: "stopped",
+      tickCount: 0,
+      approaches: sample.approaches.map((approach) => ({
+        ...approach,
+        queueLength: 0,
+        vehicles: [],
+      })),
+      statistics: {
+        ...sample.statistics,
+        tickCount: 0,
+        vehiclesGenerated: 0,
+        vehiclesProcessed: 0,
+        vehiclesWaiting: 0,
+        totalWaitingTicks: 0,
+        averageWaitingTicks: 0,
+        processedPerLogicalTick: 0,
+        approaches: sample.statistics.approaches.map((approach) => ({
+          ...approach,
+          vehiclesGenerated: 0,
+          vehiclesProcessed: 0,
+          vehiclesWaiting: 0,
+        })),
+      },
+    };
+
+    act(() => {
+      rerender(<IntersectionDashboard snapshot={resetSnapshot} />);
+    });
+
+    const summary = screen.getByLabelText("Simulation statistics");
+    expect(within(summary).getByText("0.0")).toBeTruthy();
+    expect(within(summary).getAllByText("0")).toHaveLength(4);
+    expect(within(summary).queryByText("16")).toBeNull();
+    expect(within(summary).queryByText("11")).toBeNull();
+    expect(within(summary).queryByText("5")).toBeNull();
+    expect(within(summary).queryByText("28")).toBeNull();
+    expect(within(summary).queryByText("2.5")).toBeNull();
+    expect(within(summary).queryByText("0.44")).toBeNull();
   });
 
   it("uses responsive grids for summary metrics and approach cards", () => {
@@ -125,7 +204,7 @@ describe("IntersectionDashboard", () => {
 
     const summary = screen.getByLabelText("Simulation statistics");
     expect(summary.className).toContain("grid-cols-2");
-    expect(summary.className).toContain("sm:grid-cols-4");
+    expect(summary.className).toContain("sm:grid-cols-3");
 
     const northCard = screen
       .getByRole("heading", { name: "North" })

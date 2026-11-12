@@ -234,7 +234,7 @@ export function IntersectionDashboard({ snapshot }: Props) {
         </div>
 
         <dl
-          className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4"
+          className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3"
           aria-label="Simulation statistics"
         >
           <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
@@ -261,7 +261,24 @@ export function IntersectionDashboard({ snapshot }: Props) {
               {snapshot.statistics.averageWaitingTicks.toFixed(1)}
             </dd>
           </div>
+          <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
+            <dt className="text-xs font-medium text-slate-400">Total waiting time · ticks</dt>
+            <dd className="mt-2 text-2xl font-semibold tabular-nums text-white">
+              {snapshot.statistics.totalWaitingTicks}
+            </dd>
+          </div>
+          <div className="rounded-xl border border-white/10 bg-slate-950/40 p-3">
+            <dt className="text-xs font-medium text-slate-400">Processed / logical tick</dt>
+            <dd className="mt-2 text-2xl font-semibold tabular-nums text-white">
+              {snapshot.statistics.processedPerLogicalTick.toFixed(2)}
+            </dd>
+          </div>
         </dl>
+        <p className="mt-3 text-xs leading-5 text-slate-500">
+          Average wait includes completed vehicles only and is zero before the
+          first vehicle is processed. Processed / logical tick is a cumulative
+          simulation-tick rate, not a per-second throughput.
+        </p>
 
         <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
           {snapshot.approaches.map((approach) => (
