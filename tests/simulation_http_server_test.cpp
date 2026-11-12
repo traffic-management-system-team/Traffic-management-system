@@ -5,6 +5,13 @@
 
 #include <nlohmann/json.hpp>
 
+#ifdef _WIN32
+#include <winsock2.h>
+#else
+#include <sys/socket.h>
+#include <sys/time.h>
+#endif
+
 #include <asio.hpp>
 
 #include <algorithm>
@@ -74,6 +81,38 @@ struct HttpResponse {
     std::string body;
 };
 
+// Bound synchronous test-client I/O so shutdown cannot leave a test thread
+// blocked forever while waiting for a response from a closing server.
+void setSocketTimeout(asio::ip::tcp::socket& socket) {
+#ifdef _WIN32
+    const DWORD timeoutMs = 5000;
+    const char* optionValue =
+        reinterpret_cast<const char*>(&timeoutMs);
+    const int optionLength = static_cast<int>(sizeof(timeoutMs));
+
+    if (::setsockopt(socket.native_handle(), SOL_SOCKET, SO_RCVTIMEO,
+                     optionValue, optionLength) == SOCKET_ERROR ||
+        ::setsockopt(socket.native_handle(), SOL_SOCKET, SO_SNDTIMEO,
+                     optionValue, optionLength) == SOCKET_ERROR) {
+        throw std::runtime_error(
+            "Unable to configure HTTP test socket timeout."
+        );
+    }
+#else
+    const timeval timeout{5, 0};
+
+    if (::setsockopt(socket.native_handle(), SOL_SOCKET, SO_RCVTIMEO,
+                     &timeout, sizeof(timeout)) == -1 ||
+        ::setsockopt(socket.native_handle(), SOL_SOCKET, SO_SNDTIMEO,
+                     &timeout, sizeof(timeout)) == -1) {
+        throw std::runtime_error(
+            "Unable to configure HTTP test socket timeout."
+        );
+    }
+#endif
+}
+
+
 void check(bool condition, const char* expression, int line) {
     if (!condition) {
         std::cerr << "CHECK FAILED at line " << line
@@ -111,6 +150,7 @@ HttpResponse sendRequest(
         asio::ip::make_address("127.0.0.1"),
         port
     ));
+    setSocketTimeout(socket);
 
     std::ostringstream request;
     request << method << ' ' << path << " HTTP/1.1\r\n"
@@ -141,7 +181,7 @@ HttpResponse sendRequest(
     if (chunkedTransfer) {
         constexpr std::size_t chunkSize = 4096;
         for (std::size_t offset = 0; offset < body.size();) {
-            const std::size_t length = std::min(
+            const std::size_t length = (std::min)(
                 chunkSize, body.size() - offset
             );
 
