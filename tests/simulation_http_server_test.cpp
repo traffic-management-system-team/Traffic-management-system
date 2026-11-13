@@ -491,6 +491,25 @@ void testUnsupportedMethodsUseJsonEnvelope() {
     CHECK(unknownEnvelope.at("data").is_null());
     CHECK(unknownEnvelope.at("error").at("code") == "NOT_FOUND");
     CHECK(unknownEnvelope.at("error").at("message").is_string());
+
+    const HttpResponse crossOriginUnknown = sendRequest(
+        server.port(),
+        "GET",
+        "/api/not-found",
+        {},
+        {},
+        "https://attacker.example",
+        "same-origin"
+    );
+    CHECK(crossOriginUnknown.status == 403);
+    CHECK(crossOriginUnknown.contentType == "application/json");
+    const auto crossOriginEnvelope =
+        nlohmann::json::parse(crossOriginUnknown.body);
+    CHECK(crossOriginEnvelope.at("success") == false);
+    CHECK(crossOriginEnvelope.at("data").is_null());
+    CHECK(crossOriginEnvelope.at("error").at("code") ==
+          "CROSS_ORIGIN_REQUEST");
+
     CHECK(server.stop());
 }
 
