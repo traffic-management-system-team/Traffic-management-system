@@ -485,6 +485,12 @@ void testUnsupportedMethodsUseJsonEnvelope() {
     const HttpResponse unknown =
         sendRequest(server.port(), "GET", "/api/simulation/not-found");
     CHECK(unknown.status == 404);
+    CHECK(unknown.contentType == "application/json");
+    const auto unknownEnvelope = nlohmann::json::parse(unknown.body);
+    CHECK(unknownEnvelope.at("success") == false);
+    CHECK(unknownEnvelope.at("data").is_null());
+    CHECK(unknownEnvelope.at("error").at("code") == "NOT_FOUND");
+    CHECK(unknownEnvelope.at("error").at("message").is_string());
     CHECK(server.stop());
 }
 
