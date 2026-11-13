@@ -9,7 +9,7 @@
 #define CHECK(condition) do { \
     if (!(condition)) { \
         std::cerr << "CHECK failed: " #condition \
-                  << " (line " << __LINE__ << ")\\n"; \
+                  << " (line " << __LINE__ << ")\n"; \
         std::exit(EXIT_FAILURE); \
     } \
 } while (false)
@@ -139,6 +139,6 @@ int main() {
     testQueueAndSignalProcessingFailSafely();
     testModelRejectsInvalidConfiguration();
     testModelCapacityAndResetInvariants();
-    std::cout << "Issue #11 security and reliability regression checks passed.\\n";
+    std::cout << "Issue #11 security and reliability regression checks passed.\n";
     return EXIT_SUCCESS;
 }
