@@ -206,6 +206,27 @@ void SimulationHttpAdapter::registerRoutes(crow::SimpleApp& app) {
         });
     });
 
+    // The bare API prefix is not matched by Crow's non-empty path
+    // parameter, so register it explicitly for the same JSON 404 contract.
+    CROW_ROUTE(app, "/api")
+        .methods(TMS_ALL_HTTP_METHODS)
+    ([this](const crow::request& request) {
+        return executeHttpHandlerSafely([&]() -> crow::response {
+            if (originPolicy_.isCrossOriginBrowserRequest(request)) {
+                return makeJsonErrorResponse(
+                    403,
+                    "CROSS_ORIGIN_REQUEST",
+                    "Cross-origin browser requests are not allowed."
+                );
+            }
+            return makeJsonErrorResponse(
+                404,
+                "NOT_FOUND",
+                "The requested API endpoint was not found."
+            );
+        });
+    });
+
     // Keep unmatched API paths inside the documented JSON error contract.
     CROW_ROUTE(app, "/api/<path>")
         .methods(TMS_ALL_HTTP_METHODS)
@@ -242,7 +263,8 @@ crow::response SimulationHttpAdapter::handle(
     const crow::request& request,
     const char* method,
     const char* path
-) const {    return executeHttpHandlerSafely([&]() -> crow::response {
+ ) const {
+    return executeHttpHandlerSafely([&]() -> crow::response {
         if (originPolicy_.isCrossOriginBrowserRequest(request)) {
             return makeJsonErrorResponse(
                 403,
