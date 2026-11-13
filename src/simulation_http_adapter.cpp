@@ -181,27 +181,35 @@ void SimulationHttpAdapter::registerRoutes(crow::SimpleApp& app) {
     CROW_ROUTE(app, "/api/simulation/state")
         .methods(TMS_ALL_HTTP_METHODS)
     ([this](const crow::request& request) {
-        if (originPolicy_.isCrossOriginBrowserRequest(request)) {
+        try {
+            if (originPolicy_.isCrossOriginBrowserRequest(request)) {
+                return makeJsonErrorResponse(
+                    403,
+                    "CROSS_ORIGIN_REQUEST",
+                    "Cross-origin browser requests are not allowed."
+                );
+            }
+
+            if (crow::method_name(request.method) != "GET") {
+                return makeJsonMethodNotAllowedResponse("GET");
+            }
+
+            if (request.body_too_large) {
+                return makeJsonErrorResponse(
+                    413,
+                    "PAYLOAD_TOO_LARGE",
+                    "Request body exceeds the maximum allowed size."
+                );
+            }
+
+            return stateResponse();
+        } catch (...) {
             return makeJsonErrorResponse(
-                403,
-                "CROSS_ORIGIN_REQUEST",
-                "Cross-origin browser requests are not allowed."
+                500,
+                "INTERNAL_SERVER_ERROR",
+                "An unexpected internal error occurred."
             );
         }
-
-        if (crow::method_name(request.method) != "GET") {
-            return makeJsonMethodNotAllowedResponse("GET");
-        }
-
-        if (request.body_too_large) {
-            return makeJsonErrorResponse(
-                413,
-                "PAYLOAD_TOO_LARGE",
-                "Request body exceeds the maximum allowed size."
-            );
-        }
-
-        return stateResponse();
     });
 
 }
@@ -213,11 +221,10 @@ crow::response SimulationHttpAdapter::stateResponse() const {
         return makeJsonSuccessResponse(
             serializeSimulationStateData(service_.getSnapshot())
         );
-    } catch (const std::exception& exception) {
+    } catch (const std::exception&) {
         std::fprintf(
             stderr,
-            "SimulationHttpAdapter: state request failed: %s\n",
-            exception.what()
+            "SimulationHttpAdapter: state request failed.\n"
         );
     } catch (...) {
         std::fprintf(
@@ -238,42 +245,50 @@ crow::response SimulationHttpAdapter::handle(
     const char* method,
     const char* path
 ) const {
-    if (originPolicy_.isCrossOriginBrowserRequest(request)) {
+    try {
+        if (originPolicy_.isCrossOriginBrowserRequest(request)) {
+            return makeJsonErrorResponse(
+                403,
+                "CROSS_ORIGIN_REQUEST",
+                "Cross-origin browser requests are not allowed."
+            );
+        }
+
+        if (std::string(crow::method_name(request.method)) != method) {
+            return makeJsonMethodNotAllowedResponse(method);
+        }
+
+        if (request.body_too_large) {
+            return makeJsonErrorResponse(
+                413,
+                "PAYLOAD_TOO_LARGE",
+                "Request body exceeds the maximum allowed size."
+            );
+        }
+
+        const std::string& contentType =
+            request.get_header_value("Content-Type");
+        if ((!request.body.empty() || !contentType.empty()) &&
+            !isJsonContentType(contentType)) {
+            return makeJsonErrorResponse(
+                415,
+                "UNSUPPORTED_MEDIA_TYPE",
+                "Request body must use the application/json media type."
+            );
+        }
+
+        const ApiResponse apiResponse =
+            api_.handle(makeApiRequest(request, method, path));
+
+        crow::response response(apiResponse.statusCode);
+        response.set_header("Content-Type", apiResponse.contentType);
+        response.body = apiResponse.body;
+        return response;
+    } catch (...) {
         return makeJsonErrorResponse(
-            403,
-            "CROSS_ORIGIN_REQUEST",
-            "Cross-origin browser requests are not allowed."
+            500,
+            "INTERNAL_SERVER_ERROR",
+            "An unexpected internal error occurred."
         );
     }
-
-    if (std::string(crow::method_name(request.method)) != method) {
-        return makeJsonMethodNotAllowedResponse(method);
-    }
-
-    if (request.body_too_large) {
-        return makeJsonErrorResponse(
-            413,
-            "PAYLOAD_TOO_LARGE",
-            "Request body exceeds the maximum allowed size."
-        );
-    }
-
-    const std::string& contentType =
-        request.get_header_value("Content-Type");
-    if ((!request.body.empty() || !contentType.empty()) &&
-        !isJsonContentType(contentType)) {
-        return makeJsonErrorResponse(
-            415,
-            "UNSUPPORTED_MEDIA_TYPE",
-            "Request body must use the application/json media type."
-        );
-    }
-
-    const ApiResponse apiResponse =
-        api_.handle(makeApiRequest(request, method, path));
-
-    crow::response response(apiResponse.statusCode);
-    response.set_header("Content-Type", apiResponse.contentType);
-    response.body = apiResponse.body;
-    return response;
 }
