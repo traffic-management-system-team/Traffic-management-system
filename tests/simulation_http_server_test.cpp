@@ -448,6 +448,18 @@ void testConfiguredPublicOrigin() {
     testAcceptedConfiguredOrigin("https://[2001:db8::1]:8443");
 }
 
+void testDefaultLoopbackBinding() {
+    SimulationService service;
+    SimulationHttpServer server(service);
+    std::string error;
+    CHECK(server.start(error));
+    CHECK(error.empty());
+    CHECK(server.isRunning());
+    CHECK(server.port() == 18080);
+    CHECK(getStateData(server.port()).at("state") == "stopped");
+    CHECK(server.stop());
+}
+
 void testBindAddressConfiguration() {
     CHECK(SimulationHttpBindAddress::resolve(nullptr) == "127.0.0.1");
 
@@ -1152,6 +1164,7 @@ void runTest(const char* name, void (*test)()) {
 int main() {
     ScopedPublicOriginEnvironment publicOriginEnvironment;
     CHECK(setPublicOrigin(nullptr));
+    runTest("default loopback binding", testDefaultLoopbackBinding);
     runTest("bind address configuration", testBindAddressConfiguration);
     runTest("generic internal error envelope", testGenericInternalErrorEnvelope);
     runTest("configured public origin", testConfiguredPublicOrigin);
