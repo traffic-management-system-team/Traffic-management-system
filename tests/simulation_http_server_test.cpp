@@ -493,7 +493,7 @@ void testGenericInternalErrorEnvelope() {
     );
 
     CHECK(response.code == 500);
-    CHECK(response.get_header_value("Content-Type") == "application/json");
+    CHECK(response.headers.at("Content-Type") == "application/json");
     const auto envelope = nlohmann::json::parse(response.body);
     CHECK(envelope.at("success") == false);
     CHECK(envelope.at("data").is_null());
