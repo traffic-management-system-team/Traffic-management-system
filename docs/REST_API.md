@@ -29,11 +29,29 @@ source. Its mutex continues to serialize HTTP commands and configuration
 updates with scheduler ticks and snapshots. Crow uses its own worker pool for
 requests; this does not add a simulation scheduler.
 
-The server defaults to `127.0.0.1:18080`. It owns the Crow worker and waits for
-the listener to bind before reporting startup success. Startup failures are
-returned to the executable; HTTP responses never include internal exception
-details. On Ctrl+C or Ctrl+Break, Crow stops accepting requests and the
-executable joins the server worker. If the server is stopped explicitly, call
+The server defaults to `127.0.0.1:18080`. The standalone executable
+accepts an explicit bind address through `TMS_HTTP_BIND_ADDRESS`; when unset,
+it remains loopback-only. The value must be a numeric IPv4 or IPv6 address and
+is validated before the worker starts. For example, on PowerShell:
+
+```powershell
+$env:TMS_HTTP_BIND_ADDRESS = "192.0.2.10"
+.\build\issue9-rest-debug\Debug\tms_api_server.exe
+```
+
+Use an address assigned to the host. Setting `0.0.0.0` binds all IPv4
+interfaces; an IPv6 wildcard address similarly broadens exposure. The
+executable prints the actual listener address and emits a warning when the
+address is not loopback. This is not authentication: the API has no built-in
+authentication or TLS. Do not expose it to an untrusted network; restrict
+access with host firewall rules and a properly configured TLS-terminating
+reverse proxy.
+
+The server owns the Crow worker and waits for the listener to bind before
+reporting startup success. Startup failures are returned to the executable;
+HTTP responses never include internal exception details. On Ctrl+C or
+Ctrl+Break, Crow stops accepting requests and the executable joins the server
+worker. If the server is stopped explicitly, call
 `SimulationHttpServer::stop()` and confirm it returns true before destroying
 the service. The service must outlive the HTTP server.
 
@@ -155,9 +173,12 @@ Run the API server from PowerShell:
 .\build\issue9-rest-debug\Debug\tms_api_server.exe
 ```
 
-The server listens on `http://127.0.0.1:18080` by default. Stop it with
-Ctrl+C/Ctrl+Break. To build only the existing backend without Crow, configure
-and test it independently:
+The server listens on `http://127.0.0.1:18080` by default. To bind to a
+specific interface, set `TMS_HTTP_BIND_ADDRESS` before launch; for example,
+`$env:TMS_HTTP_BIND_ADDRESS = "192.0.2.10"`. Only do this when network
+exposure is intentional and firewall/reverse-proxy controls are in place.
+Stop it with Ctrl+C/Ctrl+Break. To build only the existing backend without
+Crow, configure and test it independently:
 
 ```powershell
 cmake -S . -B build\issue9-core-only -G "Visual Studio 18 2026" -A x64 `
