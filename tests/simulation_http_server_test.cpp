@@ -1,4 +1,6 @@
 #include "simulation_http_server.h"
+#include "simulation_http_bind_address.h"
+#include "simulation_http_response.h"
 #include "simulation_http_limits.h"
 
 #include <nlohmann/json.hpp>
@@ -446,6 +448,76 @@ void testConfiguredPublicOrigin() {
     testAcceptedConfiguredOrigin("https://[2001:db8::1]:8443");
 }
 
+void testDefaultLoopbackBinding() {
+    SimulationService service;
+    SimulationHttpServer server(service);
+    std::string error;
+    CHECK(server.start(error));
+    CHECK(error.empty());
+    CHECK(server.isRunning());
+    CHECK(server.port() == 18080);
+    CHECK(getStateData(server.port()).at("state") == "stopped");
+    CHECK(server.stop());
+}
+
+void testBindAddressConfiguration() {
+    CHECK(SimulationHttpBindAddress::resolve(nullptr) == "127.0.0.1");
+
+    asio::ip::address address;
+    CHECK(SimulationHttpBindAddress::parse("127.0.0.1", address));
+    CHECK(address.is_v4());
+    CHECK(address.is_loopback());
+    CHECK(SimulationHttpBindAddress::nonLoopbackWarning(address).empty());
+    CHECK(SimulationHttpBindAddress::displayHost(address) == "127.0.0.1");
+
+    CHECK(SimulationHttpBindAddress::parse("192.0.2.10", address));
+    CHECK(address.is_v4());
+    CHECK(!address.is_loopback());
+    const std::string ipv4Warning =
+        SimulationHttpBindAddress::nonLoopbackWarning(address);
+    CHECK(ipv4Warning.find("WARNING:") != std::string::npos);
+    CHECK(ipv4Warning.find("authentication or TLS") != std::string::npos);
+    CHECK(SimulationHttpBindAddress::displayHost(address) == "192.0.2.10");
+
+    CHECK(SimulationHttpBindAddress::parse("2001:db8::1", address));
+    CHECK(address.is_v6());
+    CHECK(!address.is_loopback());
+    const std::string ipv6Warning =
+        SimulationHttpBindAddress::nonLoopbackWarning(address);
+    CHECK(ipv6Warning.find("WARNING:") != std::string::npos);
+    CHECK(SimulationHttpBindAddress::displayHost(address) == "[2001:db8::1]");
+
+    CHECK(SimulationHttpBindAddress::parse("::1", address));
+    CHECK(address.is_v6());
+    CHECK(address.is_loopback());
+    CHECK(SimulationHttpBindAddress::nonLoopbackWarning(address).empty());
+
+    CHECK(!SimulationHttpBindAddress::parse("not-an-ip-address", address));
+}
+
+void testGenericInternalErrorEnvelope() {
+    const std::string sensitiveDetail =
+        "C:\\private\\deployment\\database-password.txt";
+    const crow::response response = executeHttpHandlerSafely(
+        [&]() -> crow::response {
+            throw std::runtime_error(sensitiveDetail);
+        }
+    );
+
+    CHECK(response.code == 500);
+    const auto contentType = response.headers.find("Content-Type");
+    CHECK(contentType != response.headers.end());
+    CHECK(contentType->second == "application/json");
+    const auto envelope = nlohmann::json::parse(response.body);
+    CHECK(envelope.at("success") == false);
+    CHECK(envelope.at("data").is_null());
+    CHECK(envelope.at("error").at("code") == "INTERNAL_SERVER_ERROR");
+    CHECK(envelope.at("error").at("message") ==
+          "An unexpected internal error occurred.");
+    CHECK(response.body.find(sensitiveDetail) == std::string::npos);
+    CHECK(response.body.find("database-password") == std::string::npos);
+}
+
 void testUnsupportedMethodsUseJsonEnvelope() {
     SimulationService service;
     SimulationHttpServer server(service, "127.0.0.1", 0);
@@ -482,9 +554,46 @@ void testUnsupportedMethodsUseJsonEnvelope() {
         sendRequest(server.port(), "GET", "/api/simulation/config"), "PUT"
     );
 
+    const auto checkNotFoundEnvelope = [](const HttpResponse& response) {
+        CHECK(response.status == 404);
+        CHECK(response.contentType == "application/json");
+        const auto envelope = nlohmann::json::parse(response.body);
+        CHECK(envelope.at("success") == false);
+        CHECK(envelope.at("data").is_null());
+        CHECK(envelope.at("error").at("code") == "NOT_FOUND");
+        CHECK(envelope.at("error").at("message").is_string());
+    };
+
+    checkNotFoundEnvelope(
+        sendRequest(server.port(), "GET", "/api")
+    );
+    checkNotFoundEnvelope(
+        sendRequest(server.port(), "GET", "/api/not-found")
+    );
+    checkNotFoundEnvelope(
+        sendRequest(server.port(), "GET", "/api/simulation/not-found")
+    );
+
     const HttpResponse unknown =
         sendRequest(server.port(), "GET", "/api/simulation/not-found");
-    CHECK(unknown.status == 404);
+    const HttpResponse crossOriginUnknown = sendRequest(
+        server.port(),
+        "GET",
+        "/api/not-found",
+        {},
+        {},
+        "https://attacker.example",
+        "same-origin"
+    );
+    CHECK(crossOriginUnknown.status == 403);
+    CHECK(crossOriginUnknown.contentType == "application/json");
+    const auto crossOriginEnvelope =
+        nlohmann::json::parse(crossOriginUnknown.body);
+    CHECK(crossOriginEnvelope.at("success") == false);
+    CHECK(crossOriginEnvelope.at("data").is_null());
+    CHECK(crossOriginEnvelope.at("error").at("code") ==
+          "CROSS_ORIGIN_REQUEST");
+
     CHECK(server.stop());
 }
 
@@ -1057,6 +1166,9 @@ void runTest(const char* name, void (*test)()) {
 int main() {
     ScopedPublicOriginEnvironment publicOriginEnvironment;
     CHECK(setPublicOrigin(nullptr));
+    runTest("default loopback binding", testDefaultLoopbackBinding);
+    runTest("bind address configuration", testBindAddressConfiguration);
+    runTest("generic internal error envelope", testGenericInternalErrorEnvelope);
     runTest("configured public origin", testConfiguredPublicOrigin);
     runTest("unsupported methods", testUnsupportedMethodsUseJsonEnvelope);
     runTest("control routes and response passthrough", testControlRoutesAndResponsePassthrough);

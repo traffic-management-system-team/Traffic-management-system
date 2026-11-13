@@ -29,11 +29,29 @@ source. Its mutex continues to serialize HTTP commands and configuration
 updates with scheduler ticks and snapshots. Crow uses its own worker pool for
 requests; this does not add a simulation scheduler.
 
-The server defaults to `127.0.0.1:18080`. It owns the Crow worker and waits for
-the listener to bind before reporting startup success. Startup failures are
-returned to the executable; HTTP responses never include internal exception
-details. On Ctrl+C or Ctrl+Break, Crow stops accepting requests and the
-executable joins the server worker. If the server is stopped explicitly, call
+The server defaults to `127.0.0.1:18080`. The standalone executable
+accepts an explicit bind address through `TMS_HTTP_BIND_ADDRESS`; when unset,
+it remains loopback-only. The value must be a numeric IPv4 or IPv6 address and
+is validated before the worker starts. For example, on PowerShell:
+
+```powershell
+$env:TMS_HTTP_BIND_ADDRESS = "192.0.2.10"
+.\build\issue9-rest-debug\Debug\tms_api_server.exe
+```
+
+Use an address assigned to the host. Setting `0.0.0.0` binds all IPv4
+interfaces; an IPv6 wildcard address similarly broadens exposure. The
+executable prints the actual listener address and emits a warning when the
+address is not loopback. This is not authentication: the API has no built-in
+authentication or TLS. Do not expose it to an untrusted network; restrict
+access with host firewall rules and a properly configured TLS-terminating
+reverse proxy.
+
+The server owns the Crow worker and waits for the listener to bind before
+reporting startup success. Startup failures are returned to the executable;
+HTTP responses never include internal exception details. On Ctrl+C or
+Ctrl+Break, Crow stops accepting requests and the executable joins the server
+worker. If the server is stopped explicitly, call
 `SimulationHttpServer::stop()` and confirm it returns true before destroying
 the service. The service must outlive the HTTP server.
 
@@ -41,6 +59,11 @@ The simulation remains stopped when the HTTP server starts. Only the start
 route begins ticks. The HTTP server is stopped and joined before its shared
 `SimulationService` is destroyed; stopping the server does not reset or stop
 the simulation.
+
+Unexpected failures at the HTTP adapter, state serialization, server worker,
+and service scheduler boundaries return generic client errors where an HTTP
+response is possible. Runtime diagnostics use fixed messages rather than
+printing exception text, which can contain implementation details.
 
 ## Dependencies and CMake
 
@@ -127,9 +150,12 @@ Run the API server from PowerShell:
 .\build\issue9-rest-debug\Debug\tms_api_server.exe
 ```
 
-The server listens on `http://127.0.0.1:18080` by default. Stop it with
-Ctrl+C/Ctrl+Break. To build only the existing backend without Crow, configure
-and test it independently:
+The server listens on `http://127.0.0.1:18080` by default. To bind to a
+specific interface, set `TMS_HTTP_BIND_ADDRESS` before launch; for example,
+`$env:TMS_HTTP_BIND_ADDRESS = "192.0.2.10"`. Only do this when network
+exposure is intentional and firewall/reverse-proxy controls are in place.
+Stop it with Ctrl+C/Ctrl+Break. To build only the existing backend without
+Crow, configure and test it independently:
 
 ```powershell
 cmake -S . -B build\issue9-core-only -G "Visual Studio 18 2026" -A x64 `
@@ -227,18 +253,40 @@ cross-origin form and fetch submissions. Unsupported methods on a registered
 API path receive HTTP 405 with the common JSON error envelope and an `Allow`
 header; unknown API paths remain 404 responses.
 
+## Security review record — Issue #35
+
+| Review area | Implementation and evidence | Status / limitation |
+|---|---|---|
+| Network exposure | `SimulationHttpServer` defaults to `127.0.0.1`; the standalone executable accepts only an explicitly configured numeric address through `TMS_HTTP_BIND_ADDRESS`. Startup validates the address and warns for non-loopback listeners. | Default is loopback. A broader bind is an operator decision and is not a substitute for authentication or TLS. |
+| Request size and validation | Crow's parser is patched to cap request bodies at 64 KiB; the adapter rejects oversized bodies, malformed JSON, wrong media types and invalid methods before control handling. Existing API validation rejects wrong types and out-of-range configuration without replacing the accepted configuration. | Covered by the HTTP server and control API tests, including boundary-size and invalid-configuration cases. |
+| Error responses and diagnostics | Adapter boundaries return the common JSON error envelope for unexpected failures and unknown `/api/` paths. Server startup/worker and service scheduler logs use fixed messages rather than exception text. | Client responses and runtime diagnostics avoid exception strings, stack traces and filesystem details. |
+| Browser request boundary | `TMS_PUBLIC_ORIGIN` is validated and compared to request `Origin`; `Sec-Fetch-Site` rejects cross-site browser requests. Forwarded host/proto headers are not trusted to select the expected origin. | This is a browser-origin/CSRF boundary, not user authentication. Headerless non-browser clients remain supported by the API contract. |
+| Credentials and secrets | The API requires no credentials; the reviewed server configuration uses public bind/origin settings only. No secret values are required by this service configuration. | Do not add credentials to source control or log request headers/bodies. |
+| Synchronization and shutdown | The service mutex serializes HTTP state changes and snapshots with scheduler ticks. The server owns and joins its HTTP worker; the service must outlive the server. | Existing concurrent command/read/tick and shutdown tests exercise these paths. |
+
+The REST API intentionally has no built-in authentication or TLS. It is suitable
+for local development or deployment behind a properly secured reverse proxy,
+not direct exposure to an untrusted network. Any deployment that requires
+remote access must add an independently reviewed authentication and transport
+security layer before public exposure.
+
 ## Tests and verification
 
 `simulation_http_server_test` exercises real loopback HTTP startup, all six
 routes and the common state envelope, response forwarding, malformed JSON,
 wrong JSON types, invalid configuration/state transitions, concurrent control
-requests while the
-service scheduler is active, invalid-bind startup failure, concurrent
-shutdown, post-shutdown unavailability, JSON media-type enforcement, and body
-limits below, at, and above 64 KiB. Crow's parser stores no more than the
-configured limit and skips JSON parsing for an oversized body. The existing
-service, API, and core tests remain registered with CTest. Tests use
-always-active checks rather than `assert()`.
+requests while the service scheduler is active, invalid-bind startup failure,
+concurrent shutdown, post-shutdown unavailability, JSON media-type enforcement,
+and body limits below, at, and above 64 KiB. Bind configuration tests verify
+the default constructor binding to `127.0.0.1:18080`, IPv4 and IPv6 parsing/display, rejection
+of invalid addresses, and the non-loopback warning text. HTTP integration tests
+verify JSON 404 envelopes for `/api`, `/api/not-found`, and
+`/api/simulation/not-found`. The generic exception boundary is exercised with a
+thrown exception containing a sensitive filesystem-like detail; the test
+verifies the stable JSON 500 envelope and confirms the detail is not returned.
+Crow's parser stores no more than the configured limit and skips JSON parsing
+for an oversized body. The existing service, API, and core tests remain
+registered with CTest. Tests use always-active checks rather than `assert()`.
 
 Validation on Windows with Visual Studio 18 / MSVC 19.51.36256 and Windows SDK
 10.0.26100.0:

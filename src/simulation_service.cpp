@@ -176,11 +176,10 @@ private:
                 if (model_.state() == SimModel::State::Running) {
                     model_.tick();
                 }
-            } catch (const std::exception& error) {
+            } catch (const std::exception&) {
                 std::fprintf(
                     stderr,
-                    "SimulationService: scheduler stopped after tick failure: %s\n",
-                    error.what()
+                    "SimulationService: scheduler stopped after tick failure.\n"
                 );
 
                 if (model_.state() == SimModel::State::Running) {

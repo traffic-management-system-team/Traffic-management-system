@@ -181,6 +181,90 @@ void SimulationHttpAdapter::registerRoutes(crow::SimpleApp& app) {
     CROW_ROUTE(app, "/api/simulation/state")
         .methods(TMS_ALL_HTTP_METHODS)
     ([this](const crow::request& request) {
+        return executeHttpHandlerSafely([&]() -> crow::response {
+            if (originPolicy_.isCrossOriginBrowserRequest(request)) {
+                return makeJsonErrorResponse(
+                    403,
+                    "CROSS_ORIGIN_REQUEST",
+                    "Cross-origin browser requests are not allowed."
+                );
+            }
+
+            if (crow::method_name(request.method) != "GET") {
+                return makeJsonMethodNotAllowedResponse("GET");
+            }
+
+            if (request.body_too_large) {
+                return makeJsonErrorResponse(
+                    413,
+                    "PAYLOAD_TOO_LARGE",
+                    "Request body exceeds the maximum allowed size."
+                );
+            }
+
+            return stateResponse();
+        });
+    });
+
+    // The bare API prefix is not matched by Crow's non-empty path
+    // parameter, so register it explicitly for the same JSON 404 contract.
+    CROW_ROUTE(app, "/api")
+        .methods(TMS_ALL_HTTP_METHODS)
+    ([this](const crow::request& request) {
+        return executeHttpHandlerSafely([&]() -> crow::response {
+            if (originPolicy_.isCrossOriginBrowserRequest(request)) {
+                return makeJsonErrorResponse(
+                    403,
+                    "CROSS_ORIGIN_REQUEST",
+                    "Cross-origin browser requests are not allowed."
+                );
+            }
+            return makeJsonErrorResponse(
+                404,
+                "NOT_FOUND",
+                "The requested API endpoint was not found."
+            );
+        });
+    });
+
+    // Keep unmatched API paths inside the documented JSON error contract.
+    CROW_ROUTE(app, "/api/<path>")
+        .methods(TMS_ALL_HTTP_METHODS)
+    ([this](const crow::request& request, const std::string&) {
+        return executeHttpHandlerSafely([&]() -> crow::response {
+            if (originPolicy_.isCrossOriginBrowserRequest(request)) {
+                return makeJsonErrorResponse(
+                    403,
+                    "CROSS_ORIGIN_REQUEST",
+                    "Cross-origin browser requests are not allowed."
+                );
+            }
+            return makeJsonErrorResponse(
+                404,
+                "NOT_FOUND",
+                "The requested API endpoint was not found."
+            );
+        });
+    });
+
+}
+
+#undef TMS_ALL_HTTP_METHODS
+
+crow::response SimulationHttpAdapter::stateResponse() const {
+    return executeHttpHandlerSafely([&]() -> crow::response {
+        return makeJsonSuccessResponse(
+            serializeSimulationStateData(service_.getSnapshot())
+        );
+    });
+}
+
+crow::response SimulationHttpAdapter::handle(
+    const crow::request& request,
+    const char* method,
+    const char* path
+) const {
+    return executeHttpHandlerSafely([&]() -> crow::response {
         if (originPolicy_.isCrossOriginBrowserRequest(request)) {
             return makeJsonErrorResponse(
                 403,
@@ -189,8 +273,8 @@ void SimulationHttpAdapter::registerRoutes(crow::SimpleApp& app) {
             );
         }
 
-        if (crow::method_name(request.method) != "GET") {
-            return makeJsonMethodNotAllowedResponse("GET");
+        if (std::string(crow::method_name(request.method)) != method) {
+            return makeJsonMethodNotAllowedResponse(method);
         }
 
         if (request.body_too_large) {
@@ -201,79 +285,24 @@ void SimulationHttpAdapter::registerRoutes(crow::SimpleApp& app) {
             );
         }
 
-        return stateResponse();
+        const std::string& contentType =
+            request.get_header_value("Content-Type");
+        if ((!request.body.empty() || !contentType.empty()) &&
+            !isJsonContentType(contentType)) {
+            return makeJsonErrorResponse(
+                415,
+                "UNSUPPORTED_MEDIA_TYPE",
+                "Request body must use the application/json media type."
+            );
+        }
+
+        const ApiResponse apiResponse =
+            api_.handle(makeApiRequest(request, method, path));
+
+        crow::response response(apiResponse.statusCode);
+        response.set_header("Content-Type", apiResponse.contentType);
+        response.body = apiResponse.body;
+        return response;
     });
 
-}
-
-#undef TMS_ALL_HTTP_METHODS
-
-crow::response SimulationHttpAdapter::stateResponse() const {
-    try {
-        return makeJsonSuccessResponse(
-            serializeSimulationStateData(service_.getSnapshot())
-        );
-    } catch (const std::exception& exception) {
-        std::fprintf(
-            stderr,
-            "SimulationHttpAdapter: state request failed: %s\n",
-            exception.what()
-        );
-    } catch (...) {
-        std::fprintf(
-            stderr,
-            "SimulationHttpAdapter: state request failed unexpectedly.\n"
-        );
-    }
-
-    return makeJsonErrorResponse(
-        500,
-        "INTERNAL_SERVER_ERROR",
-        "An unexpected internal error occurred."
-    );
-}
-
-crow::response SimulationHttpAdapter::handle(
-    const crow::request& request,
-    const char* method,
-    const char* path
-) const {
-    if (originPolicy_.isCrossOriginBrowserRequest(request)) {
-        return makeJsonErrorResponse(
-            403,
-            "CROSS_ORIGIN_REQUEST",
-            "Cross-origin browser requests are not allowed."
-        );
-    }
-
-    if (std::string(crow::method_name(request.method)) != method) {
-        return makeJsonMethodNotAllowedResponse(method);
-    }
-
-    if (request.body_too_large) {
-        return makeJsonErrorResponse(
-            413,
-            "PAYLOAD_TOO_LARGE",
-            "Request body exceeds the maximum allowed size."
-        );
-    }
-
-    const std::string& contentType =
-        request.get_header_value("Content-Type");
-    if ((!request.body.empty() || !contentType.empty()) &&
-        !isJsonContentType(contentType)) {
-        return makeJsonErrorResponse(
-            415,
-            "UNSUPPORTED_MEDIA_TYPE",
-            "Request body must use the application/json media type."
-        );
-    }
-
-    const ApiResponse apiResponse =
-        api_.handle(makeApiRequest(request, method, path));
-
-    crow::response response(apiResponse.statusCode);
-    response.set_header("Content-Type", apiResponse.contentType);
-    response.body = apiResponse.body;
-    return response;
 }
