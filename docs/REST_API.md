@@ -278,7 +278,7 @@ wrong JSON types, invalid configuration/state transitions, concurrent control
 requests while the service scheduler is active, invalid-bind startup failure,
 concurrent shutdown, post-shutdown unavailability, JSON media-type enforcement,
 and body limits below, at, and above 64 KiB. Bind configuration tests verify
-the shared default loopback address, IPv4 and IPv6 parsing/display, rejection
+the default constructor binding to `127.0.0.1:18080`, IPv4 and IPv6 parsing/display, rejection
 of invalid addresses, and the non-loopback warning text. HTTP integration tests
 verify JSON 404 envelopes for `/api`, `/api/not-found`, and
 `/api/simulation/not-found`. The generic exception boundary is exercised with a
