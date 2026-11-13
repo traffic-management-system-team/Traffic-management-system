@@ -57,16 +57,15 @@ These Vitest/jsdom tests cover component, hook and API-client behavior. They do 
 
 ## Real-backend browser tests
 
-The Issue #34 Playwright suite exercises the dashboard through Chromium and the Vite same-origin proxy, with requests reaching the real C++ REST API. It verifies configuration submission, generated vehicle IDs/counts, descriptive signal labels, lifecycle controls, keyboard submission/activation, and mobile/tablet/desktop layouts. It does not mock `/api` responses.
+The Issue #34 Playwright suite exercises the dashboard through Chromium and the Vite same-origin proxy, with requests reaching the real C++ REST API. It verifies configuration submission, generated vehicle IDs/counts, live numeric generated/processed/waiting statistics (including a change while running), descriptive signal labels, lifecycle controls, keyboard submission/activation, and mobile/tablet/desktop layouts. The yellow-phase assertion observes backend state transitions directly instead of relying on the slower one-second frontend polling interval. It does not mock `/api` responses.
 
 For local execution, build and start the C++ API server using the instructions in [REST API documentation](../docs/REST_API.md). Keep it running at `http://127.0.0.1:18080`, then run from `frontend/`:
 
 ```powershell
 npm ci
-npm install --no-save --package-lock=false @playwright/test@1.56.1
 npx playwright install chromium
 $env:API_PROXY_TARGET = "http://127.0.0.1:18080"
 npm run test:e2e
 ```
 
-The Playwright runner is installed separately from the application dependency lockfile so the existing `npm ci` installation remains unchanged. The CI workflow pins the same runner version and installs Chromium with its operating-system dependencies. Automated browser coverage currently targets Chromium; a deployment-environment smoke test and a broader manual accessibility audit remain useful additional checks.
+The lockfile installs `@playwright/test` 1.65.0, matching the browser runner used by CI. Chromium is installed with the runner's matching Playwright browser revision. Automated browser coverage currently targets Chromium; a deployment-environment smoke test and a broader manual accessibility audit remain useful additional checks.
