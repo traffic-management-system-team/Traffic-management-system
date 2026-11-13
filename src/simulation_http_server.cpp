@@ -3,6 +3,7 @@
 #include "simulation_control_api.h"
 #include "simulation_http_adapter.h"
 #include "simulation_http_response.h"
+#include "simulation_http_bind_address.h"
 
 #include <asio.hpp>
 
@@ -49,9 +50,8 @@ public:
         // Validate the numeric bind address before launching Crow's worker.
         // Crow can otherwise keep waiting for startup after an invalid address
         // fails inside its asynchronous server thread.
-        try {
-            (void)asio::ip::make_address(bindAddress_);
-        } catch (const std::exception&) {
+        asio::ip::address parsedAddress;
+        if (!SimulationHttpBindAddress::parse(bindAddress_, parsedAddress)) {
             error = "Invalid HTTP server bind address.";
             return false;
         }
