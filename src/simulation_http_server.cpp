@@ -1,3 +1,4 @@
+
 #include "simulation_http_server.h"
 
 #include "simulation_control_api.h"
@@ -10,9 +11,8 @@
 #include <chrono>
 #include <csignal>
 #include <cstdio>
-#include <future>
 #include <exception>
-#include <iostream>
+#include <future>
 #include <mutex>
 #include <thread>
 #include <utility>
@@ -64,6 +64,7 @@ public:
             error = "The HTTP server can only be started once.";
             return false;
         }
+
         startedOnce_ = true;
 
         app_.bindaddr(bindAddress_)
@@ -73,12 +74,13 @@ public:
             .signal_clear()
             .signal_add(SIGINT)
             .signal_add(SIGTERM);
+
 #ifdef SIGBREAK
         app_.signal_add(SIGBREAK);
 #endif
 
         try {
-            worker_ = app_.run_async();
+            worker_ = app_.run_async().share();
         } catch (const std::exception&) {
             std::fprintf(
                 stderr,
@@ -93,6 +95,7 @@ public:
 
         const auto deadline =
             std::chrono::steady_clock::now() + startupTimeout_;
+
         while (std::chrono::steady_clock::now() < deadline) {
             if (worker_.wait_for(std::chrono::milliseconds(0)) ==
                 std::future_status::ready) {
@@ -100,16 +103,19 @@ public:
                     error,
                     "The HTTP server stopped during startup."
                 );
+
                 if (error.empty()) {
                     error = "The HTTP server stopped during startup.";
                 }
+
                 return false;
             }
 
-            const auto remaining = std::chrono::duration_cast<
-                std::chrono::milliseconds>(
-                deadline - std::chrono::steady_clock::now()
-            );
+            const auto remaining =
+                std::chrono::duration_cast<std::chrono::milliseconds>(
+                    deadline - std::chrono::steady_clock::now()
+                );
+
             const auto waitTime = remaining < startupPollInterval_
                 ? remaining
                 : startupPollInterval_;
@@ -122,53 +128,83 @@ public:
             }
         }
 
+        stopRequested_ = true;
         app_.stop();
         worker_.wait();
-        finishWorkerLocked(error, "Timed out while starting the HTTP server.");
+
+        finishWorkerLocked(
+            error,
+            "Timed out while starting the HTTP server."
+        );
+
         if (error.empty()) {
             error = "Timed out while starting the HTTP server.";
         }
+
         return false;
     }
 
     bool stop() noexcept {
         std::lock_guard<std::mutex> lock(lifecycleMutex_);
+
         if (!worker_.valid()) {
             running_ = false;
             return true;
         }
 
+        stopRequested_ = true;
+
+        // Keep stop operations serialized. waitForShutdown() uses a local
+        // shared_future copy, so it can wait without holding this mutex.
         app_.stop();
         worker_.wait();
+
         std::string error;
         const bool clean = finishWorkerLocked(
             error,
             "The HTTP server worker failed during shutdown."
         );
+
         running_ = false;
         return clean;
     }
 
     bool waitForShutdown(std::string& error) {
-        std::unique_lock<std::mutex> lock(lifecycleMutex_);
-        error.clear();
-        if (!worker_.valid()) {
-            error = "The HTTP server is not running.";
+        std::shared_future<void> worker;
+
+        {
+            std::lock_guard<std::mutex> lock(lifecycleMutex_);
+
+            error.clear();
+
+            if (!worker_.valid()) {
+                error = stopRequested_
+                    ? "The HTTP server was stopped."
+                    : "The HTTP server is not running.";
+                return false;
+            }
+
+            worker = worker_;
+        }
+
+        // Do not hold lifecycleMutex_ while waiting. stop() needs that
+        // mutex to call app_.stop() and shut down Crow.
+        while (worker.wait_for(std::chrono::milliseconds(50)) !=
+               std::future_status::ready) {
+            // Poll the shared future without modifying or consuming it.
+        }
+
+        std::lock_guard<std::mutex> lock(lifecycleMutex_);
+
+        if (stopRequested_) {
+            error = "The HTTP server was stopped.";
             return false;
         }
 
-        while (worker_.wait_for(std::chrono::milliseconds(50)) !=
-               std::future_status::ready) {
-            lock.unlock();
-            std::this_thread::yield();
-            lock.lock();
-            if (!worker_.valid()) {
-                error = "The HTTP server was stopped.";
-                return false;
-            }
-        }
-
-        return finishWorkerLocked(error, "The HTTP server worker failed.");
+        return finishWorkerLocked(
+            error,
+            "The HTTP server worker failed."
+        );
     }
 
     std::uint16_t port() const noexcept {
@@ -182,13 +218,17 @@ public:
     }
 
 private:
-    bool finishWorkerLocked(std::string& error, const char* failureMessage) {
+    bool finishWorkerLocked(
+        std::string& error,
+        const char* failureMessage
+    ) {
         if (!worker_.valid()) {
             running_ = false;
             return true;
         }
 
         try {
+            // shared_future::get() does not invalidate the shared state.
             worker_.get();
             running_ = false;
             return true;
@@ -216,18 +256,26 @@ private:
     SimulationHttpOriginPolicy originPolicy_;
     SimulationHttpAdapter adapter_;
     crow::SimpleApp app_;
+
     std::string bindAddress_;
     std::uint16_t requestedPort_;
     unsigned int concurrency_;
+
     std::uint16_t boundPort_ = 0;
-    std::future<void> worker_;
+
+    // Shared future allows stop() and waitForShutdown() to wait on the
+    // worker concurrently without racing to invalidate a std::future.
+    std::shared_future<void> worker_;
+
     mutable std::mutex lifecycleMutex_;
+
     bool startedOnce_ = false;
     bool running_ = false;
+    bool stopRequested_ = false;
+
     const std::chrono::milliseconds startupTimeout_{3000};
     const std::chrono::milliseconds startupPollInterval_{25};
 };
-
 
 SimulationHttpServer::SimulationHttpServer(
     SimulationService& service,

@@ -1,3 +1,4 @@
+
 node_modules/
 dist/
 coverage/
@@ -5,3 +6,8 @@ coverage/
 .env.*
 !.env.example
 *.local
+
+# Playwright generated output
+test-results/
+playwright-report/
+playwright/.cache/

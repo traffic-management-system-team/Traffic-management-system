@@ -1,3 +1,4 @@
+
 import { BackendConnectionCard } from "./components/BackendConnectionCard";
 import { ConfigurationForm } from "./components/ConfigurationForm";
 import { BrandMark } from "./components/BrandMark";
@@ -19,13 +20,16 @@ export default function App() {
     clearActionError,
     clearConfigurationError,
   } = useBackendStatus();
+
   const snapshot =
     status.kind === "connected"
       ? status.snapshot
       : status.kind === "error"
         ? status.snapshot
         : undefined;
+
   const connected = status.kind === "connected";
+
   const configurationLocked =
     !snapshot ||
     snapshot.state !== "stopped" ||
@@ -34,6 +38,13 @@ export default function App() {
 
   return (
     <div className="min-h-screen">
+      <a
+        href="#overview"
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-50 focus:rounded-lg focus:bg-slate-900 focus:px-4 focus:py-3 focus:text-white"
+      >
+        Skip to main content
+      </a>
+
       <div className="page-shell">
         <header className="app-header">
           <a
@@ -51,9 +62,11 @@ export default function App() {
               </span>
             </span>
           </a>
+
           <div className="hidden md:block">
             <SectionNavigation />
           </div>
+
           <span className="header-tag">
             <span aria-hidden="true" className="header-tag-dot" />
             Live simulation dashboard
@@ -64,14 +77,20 @@ export default function App() {
           <SectionNavigation />
         </div>
 
-        <main id="overview" className="mx-auto w-full max-w-6xl px-4 pb-16 pt-12 sm:px-6 sm:pt-16 lg:px-8">
+        <main
+          id="overview"
+          className="mx-auto w-full max-w-6xl px-4 pb-16 pt-12 sm:px-6 sm:pt-16 lg:px-8"
+        >
           <section className="mb-10 max-w-3xl">
             <p className="eyebrow">Traffic operations / 01</p>
+
             <h1 className="mt-4 text-4xl font-semibold tracking-tight text-white sm:text-5xl">
               Intersection overview
             </h1>
+
             <p className="mt-4 max-w-2xl text-base leading-7 text-slate-400">
-              Live signals, FIFO vehicle queues and statistics are read from the authoritative C++ simulation snapshot.
+              Live signals, FIFO vehicle queues and statistics are read from the
+              authoritative C++ simulation snapshot.
             </p>
           </section>
 
@@ -93,6 +112,7 @@ export default function App() {
                 onAction={(action) => void runAction(action)}
                 onDismissError={clearActionError}
               />
+
               <ConfigurationForm
                 acceptedConfig={snapshot.config}
                 locked={configurationLocked}
