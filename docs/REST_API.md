@@ -253,6 +253,23 @@ cross-origin form and fetch submissions. Unsupported methods on a registered
 API path receive HTTP 405 with the common JSON error envelope and an `Allow`
 header; unknown API paths remain 404 responses.
 
+## Security review record — Issue #35
+
+| Review area | Implementation and evidence | Status / limitation |
+|---|---|---|
+| Network exposure | `SimulationHttpServer` defaults to `127.0.0.1`; the standalone executable accepts only an explicitly configured numeric address through `TMS_HTTP_BIND_ADDRESS`. Startup validates the address and warns for non-loopback listeners. | Default is loopback. A broader bind is an operator decision and is not a substitute for authentication or TLS. |
+| Request size and validation | Crow's parser is patched to cap request bodies at 64 KiB; the adapter rejects oversized bodies, malformed JSON, wrong media types and invalid methods before control handling. Existing API validation rejects wrong types and out-of-range configuration without replacing the accepted configuration. | Covered by the HTTP server and control API tests, including boundary-size and invalid-configuration cases. |
+| Error responses and diagnostics | Adapter boundaries return the common JSON error envelope for unexpected failures and unknown `/api/` paths. Server startup/worker and service scheduler logs use fixed messages rather than exception text. | Client responses and runtime diagnostics avoid exception strings, stack traces and filesystem details. |
+| Browser request boundary | `TMS_PUBLIC_ORIGIN` is validated and compared to request `Origin`; `Sec-Fetch-Site` rejects cross-site browser requests. Forwarded host/proto headers are not trusted to select the expected origin. | This is a browser-origin/CSRF boundary, not user authentication. Headerless non-browser clients remain supported by the API contract. |
+| Credentials and secrets | The API requires no credentials; the reviewed server configuration uses public bind/origin settings only. No secret values are required by this service configuration. | Do not add credentials to source control or log request headers/bodies. |
+| Synchronization and shutdown | The service mutex serializes HTTP state changes and snapshots with scheduler ticks. The server owns and joins its HTTP worker; the service must outlive the server. | Existing concurrent command/read/tick and shutdown tests exercise these paths. |
+
+The REST API intentionally has no built-in authentication or TLS. It is suitable
+for local development or deployment behind a properly secured reverse proxy,
+not direct exposure to an untrusted network. Any deployment that requires
+remote access must add an independently reviewed authentication and transport
+security layer before public exposure.
+
 ## Tests and verification
 
 `simulation_http_server_test` exercises real loopback HTTP startup, all six
