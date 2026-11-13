@@ -275,13 +275,18 @@ security layer before public exposure.
 `simulation_http_server_test` exercises real loopback HTTP startup, all six
 routes and the common state envelope, response forwarding, malformed JSON,
 wrong JSON types, invalid configuration/state transitions, concurrent control
-requests while the
-service scheduler is active, invalid-bind startup failure, concurrent
-shutdown, post-shutdown unavailability, JSON media-type enforcement, and body
-limits below, at, and above 64 KiB. Crow's parser stores no more than the
-configured limit and skips JSON parsing for an oversized body. The existing
-service, API, and core tests remain registered with CTest. Tests use
-always-active checks rather than `assert()`.
+requests while the service scheduler is active, invalid-bind startup failure,
+concurrent shutdown, post-shutdown unavailability, JSON media-type enforcement,
+and body limits below, at, and above 64 KiB. Bind configuration tests verify
+the shared default loopback address, IPv4 and IPv6 parsing/display, rejection
+of invalid addresses, and the non-loopback warning text. HTTP integration tests
+verify JSON 404 envelopes for `/api`, `/api/not-found`, and
+`/api/simulation/not-found`. The generic exception boundary is exercised with a
+thrown exception containing a sensitive filesystem-like detail; the test
+verifies the stable JSON 500 envelope and confirms the detail is not returned.
+Crow's parser stores no more than the configured limit and skips JSON parsing
+for an oversized body. The existing service, API, and core tests remain
+registered with CTest. Tests use always-active checks rather than `assert()`.
 
 Validation on Windows with Visual Studio 18 / MSVC 19.51.36256 and Windows SDK
 10.0.26100.0:
