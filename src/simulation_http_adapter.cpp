@@ -212,6 +212,32 @@ void SimulationHttpAdapter::registerRoutes(crow::SimpleApp& app) {
         }
     });
 
+    // Keep unmatched API paths inside the documented JSON error contract.
+    CROW_ROUTE(app, "/api/<path>")
+        .methods(TMS_ALL_HTTP_METHODS)
+    ([this](const crow::request& request, const std::string&) {
+        try {
+            if (originPolicy_.isCrossOriginBrowserRequest(request)) {
+                return makeJsonErrorResponse(
+                    403,
+                    "CROSS_ORIGIN_REQUEST",
+                    "Cross-origin browser requests are not allowed."
+                );
+            }
+            return makeJsonErrorResponse(
+                404,
+                "NOT_FOUND",
+                "The requested API endpoint was not found."
+            );
+        } catch (...) {
+            return makeJsonErrorResponse(
+                500,
+                "INTERNAL_SERVER_ERROR",
+                "An unexpected internal error occurred."
+            );
+        }
+    });
+
 }
 
 #undef TMS_ALL_HTTP_METHODS
