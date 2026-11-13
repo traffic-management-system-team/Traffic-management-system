@@ -263,7 +263,7 @@ crow::response SimulationHttpAdapter::handle(
     const crow::request& request,
     const char* method,
     const char* path
- ) const {
+) const {
     return executeHttpHandlerSafely([&]() -> crow::response {
         if (originPolicy_.isCrossOriginBrowserRequest(request)) {
             return makeJsonErrorResponse(
