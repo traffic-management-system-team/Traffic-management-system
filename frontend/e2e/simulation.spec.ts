@@ -1,10 +1,11 @@
-import { expect, test } from "@playwright/test";
+import { expect, request, test, type APIRequestContext } from "@playwright/test";
 
 const viewportWidths = [390, 768, 1440];
 
 type BackendSnapshot = {
   state: string;
   tickCount: number;
+  activeSignal?: string;
   signalStates?: Array<{ state?: string }>;
   approaches?: Array<{ signal?: string }>;
   statistics: {
@@ -14,34 +15,55 @@ type BackendSnapshot = {
   };
 };
 
-async function readBackendSnapshot(baseURL: string): Promise<BackendSnapshot> {
-  const response = await fetch(new URL("/api/simulation/state", baseURL));
-  if (!response.ok) {
-    throw new Error(`Backend state request failed: ${response.status}`);
+async function readBackendSnapshot(backend: APIRequestContext): Promise<BackendSnapshot> {
+  const response = await backend.get("/api/simulation/state");
+
+  if (!response.ok()) {
+    throw new Error(`Backend state request failed: ${response.status()}`);
   }
-  return (await response.json()) as BackendSnapshot;
+
+  const payload = (await response.json()) as {
+    success: boolean;
+    data?: BackendSnapshot;
+    error?: unknown;
+  };
+
+  if (!payload.success || !payload.data) {
+    throw new Error("Backend response did not contain a valid simulation snapshot.");
+  }
+
+  return payload.data;
 }
 
 test.describe("live C++ simulation browser integration", () => {
-  test("configures, runs, pauses, resumes and resets the real simulation", async ({ page, baseURL }) => {
+  test("configures, runs, pauses, resumes and resets the real simulation", async ({
+    page,
+    baseURL,
+  }) => {
     if (!baseURL) {
       throw new Error("Playwright baseURL must be configured.");
     }
 
-    const backend = await page.request.newContext({ baseURL });
+    const backend = await request.newContext({ baseURL });
+
     try {
       await page.goto("/");
 
-      await expect(page.getByRole("heading", { name: "Intersection overview" })).toBeVisible();
-      const dashboard = page.getByRole("region", { name: "Intersection & approach queues" });
+      await expect(
+        page.getByRole("heading", { name: "Intersection overview" }),
+      ).toBeVisible();
+
+      const dashboard = page.getByRole("region", {
+        name: "Intersection & approach queues",
+      });
       await expect(dashboard).toBeVisible();
 
       // Reset makes the test independent of state left by a previous local run.
       await page.getByRole("button", { name: "Reset" }).click();
       await expect(dashboard.getByText("stopped", { exact: true })).toBeVisible();
 
-      // The form submits all five values to the real REST API. Enter exercises
-      // the browser's native keyboard form submission path.
+      // Submit all five configuration values through the browser's native
+      // keyboard form-submission path.
       await page.locator("#tickMs").fill("100");
       await page.locator("#greenTicks").fill("10");
       await page.locator("#yellowTicks").fill("2");
@@ -53,29 +75,31 @@ test.describe("live C++ simulation browser integration", () => {
       await expect(page.getByTestId("accepted-maxQueue")).toHaveText("50");
 
       // Activate Start from the keyboard, then verify values produced by the
-      // backend rather than a mocked browser response.
+      // real backend rather than a mocked browser response.
       const startButton = page.getByRole("button", { name: "Start" });
       await startButton.focus();
       await page.keyboard.press("Enter");
       await expect(dashboard.getByText("running", { exact: true })).toBeVisible();
 
-      const statistic = (label: string) =>
-        dashboard.getByRole("region", { name: "Simulation statistics" })
-          .locator("div")
-          .filter({ has: page.locator("dt", { hasText: label }) })
-          .locator("dd");
-
-      const generatedCount = dashboard.locator("dt").filter({ hasText: /^Vehicles generated$/ })
+      const generatedCount = dashboard
+        .locator("dt")
+        .filter({ hasText: /^Vehicles generated$/ })
         .locator("xpath=following-sibling::dd");
-      const processedCount = dashboard.locator("dt").filter({ hasText: /^Vehicles processed$/ })
+      const processedCount = dashboard
+        .locator("dt")
+        .filter({ hasText: /^Vehicles processed$/ })
         .locator("xpath=following-sibling::dd");
-      const waitingCount = dashboard.locator("dt").filter({ hasText: /^Vehicles waiting$/ })
+      const waitingCount = dashboard
+        .locator("dt")
+        .filter({ hasText: /^Vehicles waiting$/ })
         .locator("xpath=following-sibling::dd");
 
       await expect(generatedCount).toHaveText(/[1-9]\d*/, { timeout: 15_000 });
       await expect(processedCount).toHaveText(/\d+/);
       await expect(waitingCount).toHaveText(/\d+/);
-      await expect(page.getByText(/Vehicle #\d+/).first()).toBeVisible({ timeout: 15_000 });
+      await expect(page.getByText(/Vehicle #\d+/).first()).toBeVisible({
+        timeout: 15_000,
+      });
 
       const initialStats = {
         generated: Number(await generatedCount.textContent()),
@@ -83,31 +107,54 @@ test.describe("live C++ simulation browser integration", () => {
         waiting: Number(await waitingCount.textContent()),
       };
 
-      await expect.poll(async () => {
-        const current = {
-          generated: Number(await generatedCount.textContent()),
-          processed: Number(await processedCount.textContent()),
-          waiting: Number(await waitingCount.textContent()),
-        };
-        return current.generated !== initialStats.generated ||
-          current.processed !== initialStats.processed ||
-          current.waiting !== initialStats.waiting;
-      }, { timeout: 15_000 }).toBe(true);
+      await expect
+        .poll(
+          async () => {
+            const current = {
+              generated: Number(await generatedCount.textContent()),
+              processed: Number(await processedCount.textContent()),
+              waiting: Number(await waitingCount.textContent()),
+            };
 
-      // Verify transient signal phases from direct backend snapshots. The
-      // UI's one-second polling interval cannot reliably capture a 200 ms
-      // yellow phase, so this assertion does not depend on a rendered frame.
-      await expect.poll(async () => {
-        const snapshot = await readBackendSnapshot(baseURL);
-        const states = [
-          ...(snapshot.approaches ?? []).map((approach) => approach.signal?.toLowerCase()),
-          ...(snapshot.signalStates ?? []).map((signal) => signal.state?.toLowerCase()),
-        ];
-        return states.includes("yellow");
-      }, { timeout: 15_000, intervals: [25, 40, 60] }).toBe(true);
+            return (
+              current.generated !== initialStats.generated ||
+              current.processed !== initialStats.processed ||
+              current.waiting !== initialStats.waiting
+            );
+          },
+          { timeout: 15_000 },
+        )
+        .toBe(true);
+
+      // Observe transient signal phases from direct backend snapshots. The UI's
+      // one-second polling interval cannot reliably capture a 200 ms yellow
+      // phase, so this assertion does not depend on a rendered frame.
+      await expect
+        .poll(
+          async () => {
+            const snapshot = await readBackendSnapshot(backend);
+            const states = [
+              snapshot.activeSignal?.toLowerCase(),
+              ...(snapshot.approaches ?? []).map((approach) =>
+                approach.signal?.toLowerCase(),
+              ),
+              ...(snapshot.signalStates ?? []).map((signal) =>
+                signal.state?.toLowerCase(),
+              ),
+            ];
+
+            return states.includes("yellow");
+          },
+          { timeout: 15_000, intervals: [25, 40, 60] },
+        )
+        .toBe(true);
 
       await expect(
-        page.getByRole("img", { name: /approach signal: (RED|YELLOW|GREEN)/ }).first(),
+        page
+          .getByRole("img", {
+            name: /approach signal: (RED|YELLOW|GREEN)/,
+          })
+          .first(),
       ).toBeVisible();
 
       await page.getByRole("button", { name: "Pause" }).click();
@@ -126,22 +173,32 @@ test.describe("live C++ simulation browser integration", () => {
     }
   });
 
-  test("keeps the dashboard usable at mobile, tablet and desktop widths", async ({ page }) => {
+  test("keeps the dashboard usable at mobile, tablet and desktop widths", async ({
+    page,
+  }) => {
     await page.goto("/");
-    await expect(page.getByRole("heading", { name: "Intersection overview" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Intersection overview" }),
+    ).toBeVisible();
 
     for (const width of viewportWidths) {
       await page.setViewportSize({ width, height: 900 });
 
-      await expect(page.getByRole("heading", { name: "Intersection overview" })).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "Intersection overview" }),
+      ).toBeVisible();
 
       const hasHorizontalOverflow = await page.evaluate(
         () => document.documentElement.scrollWidth > window.innerWidth,
       );
 
-      expect(hasHorizontalOverflow, `horizontal overflow at ${width}px`).toBe(false);
+      expect(hasHorizontalOverflow, `horizontal overflow at ${width}px`).toBe(
+        false,
+      );
 
-      await expect(page.getByRole("heading", { name: "Simulation configuration" })).toBeVisible();
+      await expect(
+        page.getByRole("heading", { name: "Simulation configuration" }),
+      ).toBeVisible();
       await expect(page.getByRole("button", { name: "Start" })).toBeVisible();
     }
   });
