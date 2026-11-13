@@ -79,11 +79,10 @@ public:
 
         try {
             worker_ = app_.run_async();
-        } catch (const std::exception& exception) {
+        } catch (const std::exception&) {
             std::fprintf(
                 stderr,
-                "SimulationHttpServer: failed to launch HTTP worker: %s\n",
-                exception.what()
+                "SimulationHttpServer: failed to launch HTTP worker.\n"
             );
             error = "Failed to launch the HTTP server.";
             return false;
@@ -193,12 +192,11 @@ private:
             worker_.get();
             running_ = false;
             return true;
-        } catch (const std::exception& exception) {
+        } catch (const std::exception&) {
             std::fprintf(
                 stderr,
-                "SimulationHttpServer: %s: %s\n",
-                failureMessage,
-                exception.what()
+                "SimulationHttpServer: %s\n",
+                failureMessage
             );
         } catch (...) {
             std::fprintf(
