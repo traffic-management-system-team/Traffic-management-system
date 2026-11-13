@@ -60,29 +60,6 @@ route begins ticks. The HTTP server is stopped and joined before its shared
 `SimulationService` is destroyed; stopping the server does not reset or stop
 the simulation.
 
-## Bind address and network exposure
-
-The server constructor defaults to the IPv4 loopback address
-(`127.0.0.1`). The standalone `tms_api_server` executable uses that default
-and does not expose a command-line or environment-variable bind-address
-override. This keeps the default process reachable only from the local host.
-
-A program embedding `SimulationHttpServer` can request a broader listener only
-by explicitly supplying a bind address, for example:
-
-```cpp
-SimulationHttpServer server(service, "192.0.2.10", 18080);
-```
-
-Replace the documentation-only address above with an address assigned to the
-intended host interface. Do not use `0.0.0.0` unless listening on every IPv4
-interface is an intentional deployment decision. The HTTP server does not
-provide authentication or TLS; do not expose it directly to an untrusted
-network. For browser deployment, prefer the documented same-origin,
-TLS-terminating reverse-proxy arrangement and restrict backend access with
-host firewall/network rules. A broader bind address is an explicit
-configuration decision by the embedding application, not the default.
-
 Unexpected failures at the HTTP adapter, state serialization, server worker,
 and service scheduler boundaries return generic client errors where an HTTP
 response is possible. Runtime diagnostics use fixed messages rather than
