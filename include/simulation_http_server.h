@@ -2,6 +2,7 @@
 #define SIMULATION_HTTP_SERVER_H
 
 #include "simulation_service.h"
+#include "simulation_http_bind_address.h"
 
 #include <cstdint>
 #include <memory>
@@ -11,7 +12,7 @@ class SimulationHttpServer {
 public:
     explicit SimulationHttpServer(
         SimulationService& service,
-        std::string bindAddress = "127.0.0.1",
+        std::string bindAddress = SimulationHttpBindAddress::DefaultAddress,
         std::uint16_t port = 18080,
         unsigned int concurrency = 4
     );
