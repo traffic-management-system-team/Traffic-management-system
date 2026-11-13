@@ -24,4 +24,17 @@ crow::response makeJsonErrorResponse(
 );
 crow::response makeJsonMethodNotAllowedResponse(const std::string& allow);
 
+template <typename Handler>
+crow::response executeHttpHandlerSafely(Handler&& handler) {
+    try {
+        return handler();
+    } catch (...) {
+        return makeJsonErrorResponse(
+            500,
+            "INTERNAL_SERVER_ERROR",
+            "An unexpected internal error occurred."
+        );
+    }
+}
+
 #endif
