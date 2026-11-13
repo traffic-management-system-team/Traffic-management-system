@@ -1,6 +1,5 @@
 #include "simulation_http_server.h"
-
-#include <asio/ip/address.hpp>
+#include "simulation_http_bind_address.h"
 
 #include <cstdlib>
 #include <iostream>
@@ -9,11 +8,9 @@
 int main() {
     SimulationService service;
 
-    std::string bindAddress = "127.0.0.1";
-    if (const char* configuredAddress =
-            std::getenv("TMS_HTTP_BIND_ADDRESS")) {
-        bindAddress = configuredAddress;
-    }
+    const std::string bindAddress = SimulationHttpBindAddress::resolve(
+        std::getenv("TMS_HTTP_BIND_ADDRESS")
+    );
 
     SimulationHttpServer server(service, bindAddress);
 
@@ -23,17 +20,20 @@ int main() {
         return EXIT_FAILURE;
     }
 
-    const asio::ip::address address = asio::ip::make_address(bindAddress);
-    const std::string displayAddress = address.is_v6()
-        ? "[" + bindAddress + "]"
-        : bindAddress;
-
-    if (!address.is_loopback()) {
-        std::cerr
-            << "WARNING: REST API is listening on a non-loopback interface. "
-            << "The server does not provide authentication or TLS; restrict "
-            << "network access with firewall and reverse-proxy controls.\n";
+    asio::ip::address address;
+    if (!SimulationHttpBindAddress::parse(bindAddress, address)) {
+        std::cerr << "Could not start REST server: Invalid HTTP server bind address.\n";
+        return EXIT_FAILURE;
     }
+
+    const std::string warning =
+        SimulationHttpBindAddress::nonLoopbackWarning(address);
+    if (!warning.empty()) {
+        std::cerr << warning;
+    }
+
+    const std::string displayAddress =
+        SimulationHttpBindAddress::displayHost(address);
 
     std::cout << "Traffic Management System REST API listening on "
               << "http://" << displayAddress << ":" << server.port()
