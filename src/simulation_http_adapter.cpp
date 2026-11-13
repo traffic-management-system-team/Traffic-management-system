@@ -181,7 +181,7 @@ void SimulationHttpAdapter::registerRoutes(crow::SimpleApp& app) {
     CROW_ROUTE(app, "/api/simulation/state")
         .methods(TMS_ALL_HTTP_METHODS)
     ([this](const crow::request& request) {
-        try {
+        return executeHttpHandlerSafely([&]() -> crow::response {
             if (originPolicy_.isCrossOriginBrowserRequest(request)) {
                 return makeJsonErrorResponse(
                     403,
@@ -203,20 +203,14 @@ void SimulationHttpAdapter::registerRoutes(crow::SimpleApp& app) {
             }
 
             return stateResponse();
-        } catch (...) {
-            return makeJsonErrorResponse(
-                500,
-                "INTERNAL_SERVER_ERROR",
-                "An unexpected internal error occurred."
-            );
-        }
+        });
     });
 
     // Keep unmatched API paths inside the documented JSON error contract.
     CROW_ROUTE(app, "/api/<path>")
         .methods(TMS_ALL_HTTP_METHODS)
     ([this](const crow::request& request, const std::string&) {
-        try {
+        return executeHttpHandlerSafely([&]() -> crow::response {
             if (originPolicy_.isCrossOriginBrowserRequest(request)) {
                 return makeJsonErrorResponse(
                     403,
@@ -229,13 +223,7 @@ void SimulationHttpAdapter::registerRoutes(crow::SimpleApp& app) {
                 "NOT_FOUND",
                 "The requested API endpoint was not found."
             );
-        } catch (...) {
-            return makeJsonErrorResponse(
-                500,
-                "INTERNAL_SERVER_ERROR",
-                "An unexpected internal error occurred."
-            );
-        }
+        });
     });
 
 }
@@ -243,35 +231,18 @@ void SimulationHttpAdapter::registerRoutes(crow::SimpleApp& app) {
 #undef TMS_ALL_HTTP_METHODS
 
 crow::response SimulationHttpAdapter::stateResponse() const {
-    try {
+    return executeHttpHandlerSafely([&]() -> crow::response {
         return makeJsonSuccessResponse(
             serializeSimulationStateData(service_.getSnapshot())
         );
-    } catch (const std::exception&) {
-        std::fprintf(
-            stderr,
-            "SimulationHttpAdapter: state request failed.\n"
-        );
-    } catch (...) {
-        std::fprintf(
-            stderr,
-            "SimulationHttpAdapter: state request failed unexpectedly.\n"
-        );
-    }
-
-    return makeJsonErrorResponse(
-        500,
-        "INTERNAL_SERVER_ERROR",
-        "An unexpected internal error occurred."
-    );
+    });
 }
 
 crow::response SimulationHttpAdapter::handle(
     const crow::request& request,
     const char* method,
     const char* path
-) const {
-    try {
+) const {    return executeHttpHandlerSafely([&]() -> crow::response {
         if (originPolicy_.isCrossOriginBrowserRequest(request)) {
             return makeJsonErrorResponse(
                 403,
@@ -310,11 +281,6 @@ crow::response SimulationHttpAdapter::handle(
         response.set_header("Content-Type", apiResponse.contentType);
         response.body = apiResponse.body;
         return response;
-    } catch (...) {
-        return makeJsonErrorResponse(
-            500,
-            "INTERNAL_SERVER_ERROR",
-            "An unexpected internal error occurred."
-        );
-    }
+    });
+
 }
