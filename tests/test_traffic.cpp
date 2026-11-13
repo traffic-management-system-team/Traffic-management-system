@@ -117,6 +117,28 @@ void testInvalidInitialState() {
     check(threw, "Invalid initial state is rejected");
 }
 
+void testInvalidSignalValuesAreRejectedWithoutMutation() {
+    TrafficSignal signal;
+    check(signal.changeState(SignalState::GREEN),
+          "Signal enters GREEN before invalid-value test");
+
+    const SignalState invalid = static_cast<SignalState>(99);
+    check(!signal.changeState(invalid),
+          "Invalid signal enum value is rejected");
+    check(signal.getState() == SignalState::GREEN,
+          "Invalid signal enum value preserves current state");
+
+    SignalCoordinator coordinator;
+    check(!coordinator.changeState(0, invalid),
+          "Coordinator rejects invalid signal enum value");
+    check(coordinator.getState(0) == SignalState::RED,
+          "Coordinator state remains unchanged after invalid enum value");
+    check(!coordinator.changeState(4, SignalState::GREEN),
+          "Coordinator rejects out-of-range approach without indexing state");
+    check(coordinator.getState(0) == SignalState::RED,
+          "Out-of-range approach rejection preserves all valid state");
+}
+
 void testInvalidApproach() {
     SignalCoordinator coordinator;
     bool threw = false;
@@ -135,6 +157,7 @@ int main() {
     testIndependentSignal();
     testSharedCoordinator();
     testInvalidInitialState();
+    testInvalidSignalValuesAreRejectedWithoutMutation();
     testInvalidApproach();
 
     if (failures != 0) {
