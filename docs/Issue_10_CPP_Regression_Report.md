@@ -177,3 +177,52 @@ That 8/8 result is retained as historical Stage 1 evidence. It is not the final 
 - No blocking failures were observed in the recorded local run.
 
 Issue #10 evidence is ready for a focused test/evidence pull request and independent team review. Keep Issue #10 open until the evidence is reviewed and the team confirms the acceptance criteria and handoff.
+
+## Reviewer follow-up: clean-checkout verification and acceptance-criteria traceability
+
+### Clean-checkout Windows Release verification
+
+The C++ regression suite was rerun from a clean checkout of the current PR source commit.
+
+| Item | Result |
+|---|---|
+| Source commit | `2eadfbe1797c8394c9253423726eac712b0fa1a6` |
+| Initial worktree state | Clean |
+| Generator | Visual Studio 18 2026, x64 |
+| Compiler | MSVC 19.52.37029 |
+| CMake | 4.4.5 |
+| Build configuration | Release |
+| API server | Enabled |
+| CTest targets | 15 registered |
+| Release build | Passed |
+| CTest result | 15/15 passed |
+| Latest CTest duration | 8.91 seconds |
+
+Commands used:
+
+```powershell
+cmake -S . -B build-issue10-clean -G "Visual Studio 18 2026" -A x64 -DBUILD_API_SERVER=ON -DBUILD_TESTING=ON -DCMAKE_CONFIGURATION_TYPES=Release
+cmake --build build-issue10-clean --config Release --parallel 2
+ctest --test-dir build-issue10-clean -C Release --output-on-failure
+```
+
+The sanitized output is recorded in `cpp-test-results-issue10-release.txt`. The build-directory header is generic and does not expose the local Windows user path.
+
+The build emitted compiler warnings from fetched Crow dependency headers, including conversion and deprecated-function warnings. They did not prevent the Release build or test suite from completing.
+
+### Issue #10 acceptance-criteria traceability
+
+| Acceptance criterion | Test evidence | Result / scope |
+|---|---|---|
+| AC1: Execute all C++ targets and record results | All 15 CTest targets: `vehicle_manager_test`, `queue_manager_test`, `queue_empty_safety_test`, `queue_length_test`, `traffic_signal_test`, `traffic_manager_test`, `gui_model_test`, `input_validator_test`, `security_reliability_test`, `simulation_service_test`, `simulation_statistics_manager_test`, `simulation_control_api_test`, `simulation_http_server_test`, `simulation_state_serializer_test`, and `simulation_api_contract_test`. | Release build succeeded; 15/15 CTest targets passed. |
+| AC2: Deterministic ticks, signal sequence, arrivals, queue capacity, statistics, reset, and configuration | `simulation_api_contract_test`: `testDeterministicLogicalTicksAndFifoVehicleIds`, `testDeterministicArrivalsSignalTransitionsAndSignalGatedMovement`, `testRestSnapshotExposesActualFifoVehiclesAndConsistentCounts`, and `testRejectedConfigurationPreservesLastAcceptedValues`. `simulation_service_test`: transition, active-approach, snapshot, FIFO, and configuration cases. `security_reliability_test`: `testModelCapacityAndResetInvariants`. `simulation_statistics_manager_test`: independent counters, snapshots, and reset cases. `input_validator_test`: configuration validation. | Dedicated regression coverage includes deterministic ticks and arrivals, signal state transitions, queue capacity, generated/processed/waiting statistics, reset, and accepted/invalid configuration. |
+| AC3: Web acceptance against actual backend controls, configuration feedback, signal/queue/statistics display, and API errors | `frontend/e2e/simulation.spec.ts` Playwright lifecycle test against the C++ API backend. C++ coverage in `simulation_http_server_test`, `simulation_control_api_test`, `simulation_state_serializer_test`, and `simulation_api_contract_test`. | Browser lifecycle, configuration validation feedback, state/statistics updates, and API error cases are covered. The Playwright test changes are included in PR commit `2eadfbe`. |
+| AC4: Pause/resume, reset, and safe state access | `simulation_control_api_test`, `simulation_service_test`, and `simulation_api_contract_test`, including concurrent HTTP reads, commands, and ticks. The Playwright lifecycle test exercises browser controls against the backend. | Backend control, snapshot, and concurrency cases are covered; browser control lifecycle is exercised. |
+| AC5: Viewport and keyboard accessibility | Playwright responsive checks at 390, 768, and 1440 pixels; keyboard skip-link focus, visibility, and activation checks in `frontend/e2e/simulation.spec.ts`. | These specified viewport and keyboard checks are covered. This is not a full screen-reader or WCAG audit. |
+| AC6: Record defects and blockers | Release build output, CTest results, browser tests, and PR checks. | No blocking functional defect was observed in these automated checks. Crow dependency compiler warnings remain noted above. |
+
+### Test commit and browser evidence clarification
+
+The earlier local Playwright execution was performed while the test-file changes were still uncommitted at local HEAD `de01f7b`. Those Playwright changes were subsequently included in PR commit `2eadfbe1797c8394c9253423726eac712b0fa1a6`. The reviewer reported that all 8 GitHub Actions jobs passed on the PR head.
+
+The clean-checkout rerun documented above independently verifies the C++ Release build and all 15 CTest targets at that exact PR commit. The earlier local Playwright run is not represented as a new local browser rerun from the clean worktree.
