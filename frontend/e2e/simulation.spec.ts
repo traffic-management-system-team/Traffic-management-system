@@ -1,3 +1,4 @@
+
 import { expect, request, test, type APIRequestContext } from "@playwright/test";
 
 const viewportWidths = [390, 768, 1440];
@@ -8,6 +9,13 @@ type BackendSnapshot = {
   activeSignal?: string;
   signalStates?: Array<{ state?: string }>;
   approaches?: Array<{ signal?: string }>;
+  config: {
+    tickMs: number;
+    greenTicks: number;
+    yellowTicks: number;
+    arrivalInterval: number;
+    maxQueue: number;
+  };
   statistics: {
     vehiclesGenerated: number;
     vehiclesProcessed: number;
@@ -15,7 +23,23 @@ type BackendSnapshot = {
   };
 };
 
-async function readBackendSnapshot(backend: APIRequestContext): Promise<BackendSnapshot> {
+type ApiErrorEnvelope = {
+  success: boolean;
+  data: unknown;
+  error?: {
+    code?: string;
+    message?: string;
+    details?: Array<{
+      field?: string;
+      code?: string;
+      message?: string;
+    }>;
+  };
+};
+
+async function readBackendSnapshot(
+  backend: APIRequestContext,
+): Promise<BackendSnapshot> {
   const response = await backend.get("/api/simulation/state");
 
   if (!response.ok()) {
@@ -62,7 +86,24 @@ test.describe("live C++ simulation browser integration", () => {
       await page.getByRole("button", { name: "Reset" }).click();
       await expect(dashboard.getByText("stopped", { exact: true })).toBeVisible();
 
-      // Submit all five configuration values through the browser's native
+      // The real API must reject Pause while the simulation is stopped.
+      // This request goes through the configured Vite proxy to the C++ backend.
+      const stoppedPauseResponse = await backend.post(
+        "/api/simulation/pause",
+      );
+      expect(stoppedPauseResponse.status()).toBe(409);
+
+      const stoppedPausePayload =
+        (await stoppedPauseResponse.json()) as ApiErrorEnvelope;
+
+      expect(stoppedPausePayload.success).toBe(false);
+      expect(stoppedPausePayload.data).toBeNull();
+      expect(stoppedPausePayload.error?.code).toBe("INVALID_STATE");
+      expect(stoppedPausePayload.error?.message).toMatch(
+        /only pause when running/i,
+      );
+
+      // Submit all five valid configuration values using the browser's native
       // keyboard form-submission path.
       await page.locator("#tickMs").fill("100");
       await page.locator("#greenTicks").fill("10");
@@ -72,7 +113,81 @@ test.describe("live C++ simulation browser integration", () => {
       await page.locator("#maxQueue").press("Enter");
 
       await expect(page.getByTestId("accepted-tickMs")).toHaveText("100");
+      await expect(page.getByTestId("accepted-greenTicks")).toHaveText("10");
       await expect(page.getByTestId("accepted-maxQueue")).toHaveText("50");
+
+      // Submit an invalid value through the browser UI and capture the real
+      // backend response. Zero is outside the accepted GREEN duration range.
+      await page.locator("#greenTicks").fill("0");
+
+      const rejectedConfigResponsePromise = page.waitForResponse((response) => {
+        const url = new URL(response.url());
+        return (
+          url.pathname === "/api/simulation/config" &&
+          response.request().method() === "PUT"
+        );
+      });
+
+      await page
+        .getByRole("button", { name: "Apply configuration" })
+        .click();
+
+      const rejectedConfigResponse = await rejectedConfigResponsePromise;
+      expect(rejectedConfigResponse.status()).toBe(400);
+
+      const rejectedConfigPayload =
+        (await rejectedConfigResponse.json()) as ApiErrorEnvelope;
+
+      expect(rejectedConfigPayload.success).toBe(false);
+      expect(rejectedConfigPayload.data).toBeNull();
+      expect(rejectedConfigPayload.error?.code).toBe("VALIDATION_FAILED");
+      expect(rejectedConfigPayload.error?.details).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({ field: "greenTicks" }),
+        ]),
+      );
+
+      // Verify that the UI displays the backend validation feedback and does
+      // not replace the last accepted settings with the invalid draft.
+      await expect(page.locator("#greenTicks")).toHaveValue("0");
+      await expect(page.locator("#greenTicks")).toHaveAttribute(
+        "aria-invalid",
+        "true",
+      );
+      await expect(page.locator("#greenTicks-error")).toBeVisible();
+      await expect(page.getByRole("alert")).toBeVisible();
+      await expect(page.getByTestId("accepted-greenTicks")).toHaveText("10");
+
+      // Confirm directly from the backend snapshot that the rejected value
+      // did not change the authoritative configuration.
+      const snapshotAfterRejectedConfig = await readBackendSnapshot(backend);
+      expect(snapshotAfterRejectedConfig.config.greenTicks).toBe(10);
+
+      // Correct the draft and verify that the backend accepts it.
+      await page.locator("#greenTicks").fill("10");
+
+      const acceptedConfigResponsePromise = page.waitForResponse((response) => {
+        const url = new URL(response.url());
+        return (
+          url.pathname === "/api/simulation/config" &&
+          response.request().method() === "PUT"
+        );
+      });
+
+      await page
+        .getByRole("button", { name: "Apply configuration" })
+        .click();
+
+      const acceptedConfigResponse = await acceptedConfigResponsePromise;
+      expect(acceptedConfigResponse.status()).toBe(200);
+
+      await expect(page.getByTestId("accepted-greenTicks")).toHaveText("10");
+      await expect(page.locator("#greenTicks")).toHaveAttribute(
+        "aria-invalid",
+        "false",
+      );
+      await expect(page.locator("#greenTicks-error")).toHaveCount(0);
+      await expect(page.getByRole("alert")).toHaveCount(0);
 
       // Activate Start from the keyboard, then verify values produced by the
       // real backend rather than a mocked browser response.
