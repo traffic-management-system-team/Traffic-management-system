@@ -176,7 +176,7 @@ That 8/8 result is retained as historical Stage 1 evidence. It is not the final 
 - Real-backend Chromium browser acceptance: **PASS (3/3)**.
 - No blocking failures were observed in the recorded local run.
 
-Issue #10 evidence is ready for a focused test/evidence pull request and independent team review. Keep Issue #10 open until the evidence is reviewed and the team confirms the acceptance criteria and handoff.
+Issue #10 evidence was submitted in PR #51, independently reviewed and approved, and merged into main. The related GitHub issue was subsequently closed. This is the final disposition; the earlier wording is historical and superseded.
 
 ## Reviewer follow-up: clean-checkout verification and acceptance-criteria traceability
 
@@ -226,3 +226,23 @@ The build emitted compiler warnings from fetched Crow dependency headers, includ
 The earlier local Playwright execution was performed while the test-file changes were still uncommitted at local HEAD `de01f7b`. Those Playwright changes were subsequently included in PR commit `2eadfbe1797c8394c9253423726eac712b0fa1a6`. The reviewer reported that all 8 GitHub Actions jobs passed on the PR head.
 
 The clean-checkout rerun documented above independently verifies the C++ Release build and all 15 CTest targets at that exact PR commit. The earlier local Playwright run is not represented as a new local browser rerun from the clean worktree.
+
+
+## Final review and merge disposition — 15 November 2026
+
+- PR: [#51 — C++ regression and web acceptance](https://github.com/traffic-management-system-team/Traffic-management-system/pull/51)
+- Review: independent APPROVE review recorded.
+- Merge: completed into main.
+- Merge commit: 6163e94694887b5f5fd5f14c196886b99619a3bf.
+- Reviewed PR source commit: 2e1829e5aae2b872891b24ea37f752a5af71c7f3.
+- Clean-checkout Windows Release CTest source commit: 2eadfbe1797c8394c9253423726eac712b0fa1a6; build succeeded and 15/15 targets passed.
+- Frontend: type-check and production build passed; Vitest 38/38 passed.
+- Browser: 3/3 Playwright tests passed against the real C++ backend.
+- CI: both workflows passed on the reviewed PR source; all 8 jobs succeeded.
+- Issue #10: closed after review and merge.
+
+The merge commit contains the report, sanitized C++ test log, and the browser test source already reviewed in the PR. The clean-checkout local C++ rerun was on the earlier PR source commit, not the later merge commit. The PR's CI evidence validates the reviewed PR source. Do not conflate those two source revisions.
+
+### Remaining scope
+
+The automated evidence does not claim a full manual screen-reader/WCAG audit, a cross-browser matrix, or a deployment-environment smoke test. These remain optional or course-rubric-dependent handoff checks and are tracked in [Issue #12 Demo Readiness](Issue_12_Demo_Readiness.md). A final recorded demonstration should be confirmed separately before submission.

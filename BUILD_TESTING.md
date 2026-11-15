@@ -1,359 +1,122 @@
 # Build and Test Instructions
 
-## 1. Requirements
+This guide describes the active C++17 backend and React/TypeScript frontend. The archived Qt prototype is not part of the current build.
 
-- A C++ compiler with C++17 support (`g++` recommended).
+## 1. Prerequisites
+
+- C++17 compiler.
 - CMake 3.16 or newer.
-- Git and network access to fetch the pinned Crow, Asio, and JSON dependencies for API builds.
-- Windows Command Prompt (CMD).
-- Run all commands from the repository root.
-- Queue Manager tests use the `Vehicle` module integrated through PR #15.
+- Git and network access to fetch the pinned Crow, Asio and JSON dependencies when building the API server.
+- Node.js 22.12 or newer and npm 10 or newer for the frontend.
+- Windows examples use PowerShell and the Visual Studio CMake generator. Equivalent CMake commands work with supported generators on other platforms.
 
----
+Run backend commands from the repository root.
 
-## 2. PR #15 - Vehicle Manager
+## 2. Configure, build and test the C++ backend
 
-### Build
+### Windows — API-enabled Release build
 
-```cmd
-g++ -std=c++17 -Wall -Wextra -Wpedantic -Iinclude src\vehicle.cpp src\vehicle_manager.cpp tests\vehicle_manager_test.cpp -o vehicle_manager_test.exe
-```
+    cmake -S . -B build/release -G "Visual Studio 18 2026" -A x64 -DBUILD_API_SERVER=ON -DBUILD_TESTING=ON -DCMAKE_CONFIGURATION_TYPES=Release
+    cmake --build build/release --config Release --parallel 2
+    ctest --test-dir build/release -C Release --output-on-failure
 
-### Run
+### Windows — API-enabled Debug build
 
-```cmd
-vehicle_manager_test.exe
-```
+    cmake -S . -B build/debug -G "Visual Studio 18 2026" -A x64 -DBUILD_API_SERVER=ON -DBUILD_TESTING=ON -DCMAKE_CONFIGURATION_TYPES=Debug
+    cmake --build build/debug --config Debug --parallel 2
+    ctest --test-dir build/debug -C Debug --output-on-failure
 
-### Expected result
+### Core-only build (without the HTTP server)
 
-```text
-All VehicleManager tests passed.
-```
+Use BUILD_API_SERVER=OFF to build and test the framework-neutral simulation core without fetching or linking the Crow/Asio HTTP dependencies:
 
----
+    cmake -S . -B build/core-only -DBUILD_API_SERVER=OFF -DBUILD_TESTING=ON
+    cmake --build build/core-only --config Release
+    ctest --test-dir build/core-only -C Release --output-on-failure
 
-## 3. PR #16 - Queue Manager
+For a single-configuration generator, set CMAKE_BUILD_TYPE=Debug or Release during configuration and omit --config and -C from build and CTest commands.
 
-Queue Manager depends on the `Vehicle` type and implementation supplied by PR #15. PR #15 has been merged into `main`. The Queue Manager tests compile against the integrated files `include/vehicle.h` and `src/vehicle.cpp`.
+## 3. Start the C++ REST API
 
-Do not add duplicate copies of the Vehicle module to PR #16.
+After a successful Windows Release build:
 
-### 3.1 Multi-road queue test - Debug
+    .\build\release\Release\tms_api_server.exe
 
-Build:
+The default listener is http://127.0.0.1:18080. Starting the HTTP server does not start simulation ticks; use the Start endpoint or browser control to start the simulation.
 
-```cmd
-g++ -std=c++17 -Wall -Wextra -Wpedantic -Iinclude src\vehicle.cpp src\queue_manager.cpp tests\queue_manager_test.cpp -o queue_manager_test.exe
-```
+The server has no built-in authentication or TLS. Keep it loopback-only for local development. Do not bind it to a public/untrusted interface without an appropriately secured deployment boundary, firewall restrictions and TLS-terminating reverse proxy. See [REST API security and deployment notes](docs/REST_API.md).
 
-Run:
+## 4. Build and test the frontend
 
-```cmd
-queue_manager_test.exe
-```
+Open a second terminal:
 
-Verified result:
+    cd frontend
+    npm ci
+    npm run type-check
+    npm test
+    npm run build
 
-```text
-All multi-road QueueManager tests passed.
-```
+To launch the development frontend:
 
-### 3.2 Multi-road queue test - Release
+    Copy-Item .env.example .env.local
+    npm run dev
 
-Build:
+Edit API_PROXY_TARGET in .env.local only if the backend is not at http://127.0.0.1:18080. Vite proxies same-origin /api/* requests to the backend. Keep the API target in the Node-side API_PROXY_TARGET setting; do not expose it through a VITE_ variable.
 
-```cmd
-g++ -std=c++17 -DNDEBUG -O2 -Wall -Wextra -Wpedantic -Iinclude src\vehicle.cpp src\queue_manager.cpp tests\queue_manager_test.cpp -o queue_manager_release_test.exe
-```
+## 5. Run real-backend browser acceptance
 
-Run:
+Keep the C++ REST API running. From frontend/:
 
-```cmd
-queue_manager_release_test.exe
-```
+    npx playwright install chromium
+    $env:API_PROXY_TARGET = "http://127.0.0.1:18080"
+    npm run test:e2e
 
-Verified result:
+The Playwright suite uses Chromium and sends requests through the Vite same-origin proxy to the real C++ API; it does not mock the API routes.
 
-```text
-All multi-road QueueManager tests passed.
-```
+## 6. Recorded Issue #10 verification
 
-### 3.3 Empty-queue safety test - Debug
+The reviewed Issue #10 evidence was merged through [PR #51](https://github.com/traffic-management-system-team/Traffic-management-system/pull/51).
 
-Build:
-
-```cmd
-g++ -std=c++17 -Wall -Wextra -Wpedantic -Iinclude src\vehicle.cpp src\queue_manager.cpp tests\queue_empty_safety_test.cpp -o queue_empty_safety_test.exe
-```
-
-Run:
-
-```cmd
-queue_empty_safety_test.exe
-```
-
-Verified result:
-
-```text
-TC-13 empty-queue safety passed.
-```
-
-### 3.4 Empty-queue safety test - Release
-
-Build:
-
-```cmd
-g++ -std=c++17 -DNDEBUG -O2 -Wall -Wextra -Wpedantic -Iinclude src\vehicle.cpp src\queue_manager.cpp tests\queue_empty_safety_test.cpp -o queue_empty_safety_release_test.exe
-```
-
-Run:
-
-```cmd
-queue_empty_safety_release_test.exe
-```
-
-Verified result:
-
-```text
-TC-13 empty-queue safety passed.
-```
-
-### 3.5 Queue-length test - Debug
-
-Build:
-
-```cmd
-g++ -std=c++17 -Wall -Wextra -Wpedantic -Iinclude src\vehicle.cpp src\queue_manager.cpp tests\queue_length_test.cpp -o queue_length_test.exe
-```
-
-Run:
-
-```cmd
-queue_length_test.exe
-```
-
-Verified result:
-
-```text
-Queue length tests passed.
-```
-
-### 3.6 Queue-length test - Release
-
-Build:
-
-```cmd
-g++ -std=c++17 -DNDEBUG -O2 -Wall -Wextra -Wpedantic -Iinclude src\vehicle.cpp src\queue_manager.cpp tests\queue_length_test.cpp -o queue_length_release_test.exe
-```
-
-Run:
-
-```cmd
-queue_length_release_test.exe
-```
-
-Verified result:
-
-```text
-Queue length tests passed.
-```
-
-All six Queue Manager test configurations above were built and executed successfully in the rebased PR #16 working tree on 24 October 2026.
-
----
-
-## 4. Release-safe test checks
-
-The Queue Manager test files use a `CHECK` mechanism rather than relying on standard `assert()` for test verification. This keeps test checks active when compiling with `-DNDEBUG`.
-
-Both Debug and Release configurations should be tested when changing Queue Manager behavior.
-
----
-
-## 5. Queue Manager API
-
-The Queue Manager exposes adapter methods while retaining its existing queue API for backward compatibility.
-
-The adapter methods are:
-
-- `addVehicle(roadId, vehicle)` - delegates to `enqueue` and returns `true` if the operation completes normally. Allocation failures may propagate as exceptions.
-- `dequeueVehicle(roadId, vehicle)` - delegates to `dequeue`, returning `false` if the road queue is missing or empty.
-- `getQueueLength(roadId)` - delegates to `getSize` and returns the current queue length without modifying the queue.
-
-The underlying queue operations are:
-
-- `enqueue(roadId, vehicle)`
-- `dequeue(roadId, vehicle)`
-- `getSize(roadId)`
-
-The SAD describes `addVehicle(vehicle)` and `dequeueVehicle(roadId)` at a conceptual interface level. The C++ adapter retains `roadId` for insertion and uses an output parameter for dequeueing to fit the existing per-road queue implementation.
-
-Confirm any interface differences with the team or reviewer against the agreed SAD contract.
-
----
-
-## 6. Responsibility boundary
-
-Queue Manager manages FIFO queues and does not inspect traffic-signal state. Any requirement to allow vehicle processing only when a signal permits it must be enforced by the simulation or controller layer before requesting vehicle processing.
-
-This documents the current implementation boundary; it does not claim that signal-permission behavior has been verified end to end.
-
----
-
-## 7. Test coverage
-
-The Queue Manager tests cover:
-
-- Multiple independent road queues.
-- FIFO queue behavior.
-- Empty or nonexistent queue handling.
-- Queue-length reporting.
-- Checks that remain active in Release builds using `-DNDEBUG`.
-
-These tests validate Queue Manager behavior in isolation. They do not establish that the complete traffic-management application has been integrated or that signal-permission behavior has been verified end to end.
-
----
-
-## 8. Integration notes
-
-- PR #16 uses the Vehicle module integrated through PR #15.
-- Build the Queue Manager tests against the current integrated source files.
-- Do not commit duplicate copies of `include/vehicle.h` or `src/vehicle.cpp` in PR #16.
-- Re-run all six Queue Manager test configurations after changes to the Queue Manager implementation or its dependencies.
-- Verify the integrated API against the agreed SAD interpretation during review.
-
----
-
-## 9. CMake build and deterministic simulation tests
-
-The active application backend uses C++17, CMake, and the optional Crow REST
-server. The core-only configuration does not fetch Crow, Asio, or nlohmann-json.
-No Qt installation or desktop build target is required.
-
-### 9.1 Debug core tests
-
-```powershell
-cmake -S . -B build\debug -DBUILD_API_SERVER=OFF -DBUILD_TESTING=ON
-cmake --build build\debug --config Debug
-ctest --test-dir build\debug -C Debug --output-on-failure
-```
-
-### 9.2 Release core tests
-
-```powershell
-cmake -S . -B build\release -DBUILD_API_SERVER=OFF -DBUILD_TESTING=ON
-cmake --build build\release --config Release
-ctest --test-dir build\release -C Release --output-on-failure
-```
-
-#### Current web-backend verification - 9 November 2026
-
-| Configuration | Build | CTest |
-|---|---|---|
-| Debug, `BUILD_API_SERVER=ON` | Passed | 12/12 passed |
-| Release, `BUILD_API_SERVER=ON` | Passed | 12/12 passed |
-| Debug, `BUILD_API_SERVER=OFF` | Passed | 10/10 passed |
-
-These counts are recorded local execution results. The saved LastTest.log
-files do not include a source commit ID or source hash, so they cannot prove
-which exact source revision was built or whether every then-current uncommitted
-change was included. They are not Issue #10 acceptance results. No tests were
-rerun during Issue #12 documentation preparation. Treat the counts as
-provenance-limited local records, not revision-bound acceptance evidence.
-
-The active CMake configuration contains no Qt package lookup or desktop
-application target.
-
-### 9.3 TC-10 input validation and safe configuration handling
-
-`input_validator_test` covers every configuration field's minimum and maximum
-boundaries, missing values, malformed and non-integer values, out-of-range
-values, field-specific diagnostic keys and error codes, and simultaneous
-errors. It also verifies that invalid submissions preserve the active
-configuration, backend rejection does not commit a candidate, and accepted
-and rejected submission counts are correct.
-
-`gui_model_test` retains its historical target name but exercises the
-controller-to-model application path without Qt. It checks successful
-application, invalid-input and model-rejection preservation, rejection while
-Running and Paused, and acceptance after reset. Existing pause/resume and reset
-regressions remain in the test.
-
-The core-only Debug and Release commands above build and run all ten registered
-core tests, including `input_validator_test` and `gui_model_test`.
-
-#### Recorded verification - 6 November 2026
-
-| Configuration | Result |
+| Verification | Recorded result |
 |---|---|
-| Debug | All eight core test executables compiled with GCC 6.3.0 and passed. |
-| Release | All eight core test executables compiled with GCC 6.3.0 and passed. |
-| CMake/CTest through CMake Tools | Blocked: the CMake Tools configure action reported `Unable to configure the project`; no CTest run is claimed. |
+| Windows MSVC 19.52.37029 API-enabled Release build | Passed |
+| CTest Release suite | 15/15 passed from a clean checkout of source commit 2eadfbe1797c8394c9253423726eac712b0fa1a6 |
+| Frontend type-check | Passed |
+| Vitest | 38/38 passed across four test files |
+| Vite production build | Passed |
+| Playwright real-backend Chromium suite | 3/3 passed |
+| GitHub Actions | Both workflows passed; 8 jobs successful on the reviewed PR source |
 
-The Debug and Release results above are direct GCC fallback runs using the
-same core source and test lists registered in `CMakeLists.txt`; they are not
-CMake/CTest results. The CMake commands in sections 9.1 and 9.2 remain the
-reproducible CMake verification path.
+The clean-checkout C++ rerun is tied to PR source commit 2eadfbe. The report transparently distinguishes the earlier local browser run (which initially used an uncommitted test-file state) from the later committed test source and CI evidence. Do not describe the 15/15 local Windows rerun as having been executed on the later merge commit unless a new run is performed on that commit.
 
-For single-configuration generators, set `-DCMAKE_BUILD_TYPE=Debug` or
-`Release` at configure time and omit `--config` and `-C` from the build and
-CTest commands. The test checks remain active in Release builds.
+MSVC emitted warnings in fetched Crow dependency headers; the build and tests completed successfully. Automated browser evidence targets Chromium and the specified responsive widths. It is not a full manual screen-reader/WCAG audit or a cross-browser deployment certification.
 
-### 9.4 Build and run the REST API backend
+## 7. Test targets
 
-The API server is enabled by default. Its build and run commands, including
-Debug, Release, and core-only configurations, are maintained in
-[REST API documentation](docs/REST_API.md). Starting the server does not start
-the simulation; use the documented start endpoint to begin ticks. The React,
-TypeScript, Vite and Tailwind CSS frontend scaffold is maintained separately
-under `frontend/`; see its [setup and verification guide](frontend/README.md).
-Browser dashboard integration and acceptance checks are listed in the Issue
-#12 demo-readiness checklist.
+With BUILD_API_SERVER=ON, the 15 registered CTest targets in the recorded Issue #10 Release run were:
 
-The legacy Qt prototype is retained at `legacy/qt-prototype/gui_main.cpp` for
-historical reference; it is not a CMake target or the application frontend.
+- vehicle_manager_test
+- queue_manager_test
+- queue_empty_safety_test
+- queue_length_test
+- traffic_signal_test
+- traffic_manager_test
+- gui_model_test (historical target name; core model regression, not a Qt GUI)
+- input_validator_test
+- security_reliability_test
+- simulation_service_test
+- simulation_statistics_manager_test
+- simulation_control_api_test
+- simulation_http_server_test
+- simulation_state_serializer_test
+- simulation_api_contract_test
 
-Configuration is accepted only while the simulation is stopped at logical
-tick zero. Invalid values are rejected without replacing the last accepted
-configuration. Accepted tick interval, signal durations, arrival interval, and
-maximum per-approach queue length are applied to the service scheduler and model behavior.
+The frontend test suite covers API client behavior, backend status/polling, dashboard components and application interactions. The browser suite adds end-to-end coverage against the real backend.
 
-Each accepted running tick increments the logical tick, processes existing
-vehicles through the signal-gated `TrafficManager`, creates the scheduled
-arrival if capacity permits, then advances the signal phase. Arrivals become
-eligible for processing on the following tick. Arrival rotation is North,
-South, East, West, repeating at the configured interval.
+## 8. Related documentation
 
-Reset drains every approach queue, removes queued vehicles from the
-`VehicleManager`, clears statistics and arrival records, restores North GREEN,
-and returns the simulation to Stopped. An explicit Start resumes ticks.
-
-### 9.5 CMake test targets
-
-CTest registers ten core tests, including `simulation_service_test` and
-`simulation_control_api_test`, as well as `gui_model_test` (a retained legacy
-name for core model regression coverage). With `BUILD_API_SERVER=ON`, CTest
-also registers `simulation_http_server_test` and
-`simulation_state_serializer_test`.
-
-## 10. Frontend scaffold and Issue #12 demo readiness
-
-The React, TypeScript, Vite and Tailwind CSS frontend scaffold, typed API
-client, API-client tests, responsive shell and live state request are present
-under `frontend/`. The full browser dashboard, lifecycle/configuration UI,
-signals, queues and statistics presentation, browser accessibility review and
-end-to-end acceptance remain pending. Frontend install, type-check, test and
-build commands are documented in [frontend/README.md](frontend/README.md).
-
-Previously inspected local CTest records show Debug 12/12, Release 12/12, and
-core-only Debug 10/10 passing. Their logs contain no source commit ID or source
-hash and cannot conclusively tie all four uncommitted changes in the separate
-Issue #9 worktree to those builds. They are not Issue #10 acceptance results.
-No tests were rerun for this documentation work.
-
-Issue #10 remains open and owned by another team member. Await its actual
-revision-bound C++ regression results, frontend/browser integration, control
-and configuration demonstrations, accessibility/responsiveness checks, and
-end-to-end demo evidence. Do not mark Issue #12 complete from documentation
-preparation alone. See the Issue #12 Demo Readiness checklist.
+- [REST API](docs/REST_API.md)
+- [Frontend setup and test commands](frontend/README.md)
+- [Architecture](docs/Architecture.md)
+- [Issue #10 regression report](docs/Issue_10_CPP_Regression_Report.md)
+- [Issue #12 demo-readiness checklist](docs/Issue_12_Demo_Readiness.md)
