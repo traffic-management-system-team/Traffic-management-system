@@ -1,0 +1,35 @@
+Test project <build-directory>
+      Start  1: vehicle_manager_test
+ 1/15 Test  #1: vehicle_manager_test .................   Passed    0.03 sec
+      Start  2: queue_manager_test
+ 2/15 Test  #2: queue_manager_test ...................   Passed    0.02 sec
+      Start  3: queue_empty_safety_test
+ 3/15 Test  #3: queue_empty_safety_test ..............   Passed    0.03 sec
+      Start  4: queue_length_test
+ 4/15 Test  #4: queue_length_test ....................   Passed    0.03 sec
+      Start  5: traffic_signal_test
+ 5/15 Test  #5: traffic_signal_test ..................   Passed    0.03 sec
+      Start  6: traffic_manager_test
+ 6/15 Test  #6: traffic_manager_test .................   Passed    0.02 sec
+      Start  7: gui_model_test
+ 7/15 Test  #7: gui_model_test .......................   Passed    0.03 sec
+      Start  8: input_validator_test
+ 8/15 Test  #8: input_validator_test .................   Passed    0.02 sec
+      Start  9: security_reliability_test
+ 9/15 Test  #9: security_reliability_test ............   Passed    0.03 sec
+      Start 10: simulation_service_test
+10/15 Test #10: simulation_service_test ..............   Passed    4.27 sec
+      Start 11: simulation_statistics_manager_test
+11/15 Test #11: simulation_statistics_manager_test ...   Passed    0.04 sec
+      Start 12: simulation_control_api_test
+12/15 Test #12: simulation_control_api_test ..........   Passed    0.03 sec
+      Start 13: simulation_http_server_test
+13/15 Test #13: simulation_http_server_test ..........   Passed    2.52 sec
+      Start 14: simulation_state_serializer_test
+14/15 Test #14: simulation_state_serializer_test .....   Passed    0.11 sec
+      Start 15: simulation_api_contract_test
+15/15 Test #15: simulation_api_contract_test .........   Passed    1.64 sec
+
+100% tests passed out of 15
+
+Total Test time (real) =   8.91 sec
