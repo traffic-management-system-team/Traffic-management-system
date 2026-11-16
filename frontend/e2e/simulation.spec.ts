@@ -255,7 +255,9 @@ test.describe("live C++ simulation browser integration", () => {
       await expect(generatedCount).toHaveText(/[1-9]\d*/, { timeout: 15_000 });
       await expect(processedCount).toHaveText(/\d+/);
       await expect(waitingCount).toHaveText(/\d+/);
-      await monitorLink.click();
+      // Keep the full-queue comparison on a paused snapshot. Waiting for the
+      // backend transition avoids relying on a UI poll while the fast-running
+      // simulation keeps changing during the browser assertion sequence.
 
       const initialStats = {
         generated: Number(await generatedCount.textContent()),
@@ -282,6 +284,14 @@ test.describe("live C++ simulation browser integration", () => {
         )
         .toBe(true);
 
+      await page.getByRole("button", { name: "Pause" }).click();
+      await expect(page.getByText("Paused", { exact: true }).first()).toBeVisible();
+      const pausedSnapshot = await readBackendSnapshot(backend);
+      await expect(generatedCount).toHaveText(String(pausedSnapshot.statistics.vehiclesGenerated));
+      await expect(processedCount).toHaveText(String(pausedSnapshot.statistics.vehiclesProcessed));
+      await expect(waitingCount).toHaveText(String(pausedSnapshot.statistics.vehiclesWaiting));
+      await monitorLink.click();
+
       // The extended but valid yellow phase gives the one-second UI poll time
       // to render an actual backend state transition in the scene.
       await expect
@@ -291,17 +301,10 @@ test.describe("live C++ simulation browser integration", () => {
         )
         .toBeGreaterThan(0);
       await page.screenshot({ path: resolve(screenshotDirectory, "04-signal-transition.png"), fullPage: true });
-      await expect(page.getByRole("list", { name: "Detected simulation activity" })).toBeVisible();
+      await expect(page.getByText("Simulation paused")).toBeVisible({ timeout: 8_000 });
+      await expect(page.getByText(/signal changed/).first()).toBeVisible({ timeout: 8_000 });
       await page.screenshot({ path: resolve(screenshotDirectory, "05-activity-log.png"), fullPage: true });
 
-      await controlLink.click();
-      await page.getByRole("button", { name: "Pause" }).click();
-      await expect(page.getByText("Paused", { exact: true }).first()).toBeVisible();
-      const pausedSnapshot = await readBackendSnapshot(backend);
-      await expect(generatedCount).toHaveText(String(pausedSnapshot.statistics.vehiclesGenerated));
-      await expect(processedCount).toHaveText(String(pausedSnapshot.statistics.vehiclesProcessed));
-      await expect(waitingCount).toHaveText(String(pausedSnapshot.statistics.vehiclesWaiting));
-      await monitorLink.click();
       await expect(page.getByRole("button", { name: "Resume" })).toBeVisible();
       await expect(page.getByText("Simulation paused")).toBeVisible({ timeout: 8_000 });
 
