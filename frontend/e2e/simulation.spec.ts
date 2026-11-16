@@ -72,6 +72,10 @@ test.describe("live C++ simulation browser integration", () => {
     page,
     baseURL,
   }) => {
+    // This test drives many real API lifecycle/configuration operations; keep
+    // enough headroom for the hosted Chromium runner, which is slower than local.
+    test.setTimeout(120_000);
+
     if (!baseURL) {
       throw new Error("Playwright baseURL must be configured.");
     }
