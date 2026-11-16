@@ -2,6 +2,7 @@ import type { SimulationState } from "../api/types";
 import type { SimulationOperation } from "../hooks/useBackendStatus";
 
 interface SimulationControlsProps {
+  compact?: boolean;
   state: SimulationState | "unknown";
   pendingOperation: SimulationOperation | null;
   connected: boolean;
@@ -25,6 +26,7 @@ const pendingLabels: Partial<Record<SimulationOperation, string>> = {
 };
 
 export function SimulationControls({
+  compact = false,
   state,
   pendingOperation,
   connected,
@@ -44,7 +46,7 @@ export function SimulationControls({
     <section
       aria-labelledby="simulation-controls-title"
       aria-busy={busy}
-      className="surface-card p-5 sm:p-7"
+      className={`surface-card ${compact ? "p-4 sm:p-5" : "p-5 sm:p-7"}`}
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
@@ -65,13 +67,15 @@ export function SimulationControls({
         </p>
       </div>
 
-      <p id="lifecycle-help" className="mt-3 text-sm leading-6 text-slate-400">
-        Start is available while stopped, Pause while running, and Resume while
-        paused. Reset is available in any state. The displayed state is refreshed
-        from the backend after each successful action.
-      </p>
+      {!compact ? (
+        <p id="lifecycle-help" className="mt-3 text-sm leading-6 text-slate-400">
+          Start is available while stopped, Pause while running, and Resume while
+          paused. Reset is available in any state. The displayed state is refreshed
+          from the backend after each successful action.
+        </p>
+      ) : null}
 
-      <div className="mt-5 flex flex-wrap gap-3" aria-describedby="lifecycle-help">
+      <div className="mt-5 flex flex-wrap gap-3" aria-describedby={compact ? undefined : "lifecycle-help"}>
         {actions.map(({ action, enabled, style }) => {
           const isPending = pendingOperation === action;
           const disabled = !connected || busy || !enabled;
@@ -81,7 +85,7 @@ export function SimulationControls({
               type="button"
               className={style + " px-4 py-2.5 text-sm disabled:cursor-not-allowed disabled:opacity-45"}
               disabled={disabled}
-              aria-describedby="lifecycle-help"
+              aria-describedby={compact ? undefined : "lifecycle-help"}
               onClick={() => onAction(action)}
             >
               {isPending ? pendingLabels[action] : actionLabels[action]}
@@ -95,7 +99,7 @@ export function SimulationControls({
           Controls are disabled until the backend state is available.
         </p>
       )}
-      {busy && (
+      {busy && !(compact && pendingOperation === "configuration") && (
         <p className="mt-3 text-sm text-cyan-100" role="status" aria-live="polite">
           {pendingOperation === "configuration"
             ? "Saving configuration…"

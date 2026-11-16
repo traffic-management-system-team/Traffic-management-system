@@ -1,5 +1,7 @@
 
 import { expect, request, test, type APIRequestContext } from "@playwright/test";
+import { mkdirSync } from "node:fs";
+import { resolve } from "node:path";
 
 const viewportWidths = [390, 768, 1440];
 
@@ -8,7 +10,13 @@ type BackendSnapshot = {
   tickCount: number;
   activeSignal?: string;
   signalStates?: Array<{ state?: string }>;
-  approaches?: Array<{ signal?: string }>;
+  approaches?: Array<{
+    id: string;
+    name: string;
+    signal?: string;
+    queueLength: number;
+    vehicles: Array<{ id: number }>;
+  }>;
   config: {
     tickMs: number;
     greenTicks: number;
@@ -60,31 +68,54 @@ async function readBackendSnapshot(
 }
 
 test.describe("live C++ simulation browser integration", () => {
-  test("configures, runs, pauses, resumes and resets the real simulation", async ({
+  test("controls the real simulation across Control Centre and Simulation Monitor", async ({
     page,
     baseURL,
   }) => {
+    // This test drives many real API lifecycle/configuration operations; keep
+    // enough headroom for the hosted Chromium runner, which is slower than local.
+    test.setTimeout(120_000);
+
     if (!baseURL) {
       throw new Error("Playwright baseURL must be configured.");
     }
 
     const backend = await request.newContext({ baseURL });
+    const screenshotDirectory = resolve(process.cwd(), "..", "verification-screenshots");
+    mkdirSync(screenshotDirectory, { recursive: true });
+    const originalSnapshot = await readBackendSnapshot(backend);
+    const originalConfig = { ...originalSnapshot.config };
+    const testConfig = {
+      tickMs: 250,
+      greenTicks: 3,
+      yellowTicks: 10,
+      arrivalInterval: 1,
+      maxQueue: 12,
+    };
 
     try {
       await page.goto("/");
 
       await expect(
-        page.getByRole("heading", { name: "Intersection overview" }),
+        page.getByRole("heading", { name: "Control Centre" }),
       ).toBeVisible();
+      await expect(page.getByText("API connected", { exact: true })).toBeVisible();
+      await expect(page.getByText("Unavailable", { exact: true })).toHaveCount(0);
+      await expect(page.getByRole("heading", { name: "Simulation throughput" })).toBeVisible();
+      await expect(page.getByText("Approach summary")).toBeVisible();
+      await page.screenshot({ path: resolve(screenshotDirectory, "01-control-centre.png"), fullPage: true });
 
-      const dashboard = page.getByRole("region", {
-        name: "Intersection & approach queues",
-      });
-      await expect(dashboard).toBeVisible();
+      const monitorLink = page.getByRole("link", { name: "Simulation Monitor" }).first();
+      const controlLink = page.getByRole("link", { name: "Control Centre" }).first();
+      const scene = page.getByRole("img", { name: "Live four-way intersection and vehicle queues" });
 
       // Reset makes the test independent of state left by a previous local run.
       await page.getByRole("button", { name: "Reset" }).click();
-      await expect(dashboard.getByText("stopped", { exact: true })).toBeVisible();
+      await monitorLink.click();
+      await expect(page.getByRole("heading", { name: "Simulation Monitor" })).toBeVisible();
+      await expect(scene).toBeVisible();
+      await page.screenshot({ path: resolve(screenshotDirectory, "02-monitor-empty.png"), fullPage: true });
+      await controlLink.click();
 
       // The real API must reject Pause while the simulation is stopped.
       // This request goes through the configured Vite proxy to the C++ backend.
@@ -105,16 +136,16 @@ test.describe("live C++ simulation browser integration", () => {
 
       // Submit all five valid configuration values using the browser's native
       // keyboard form-submission path.
-      await page.locator("#tickMs").fill("100");
-      await page.locator("#greenTicks").fill("10");
-      await page.locator("#yellowTicks").fill("2");
-      await page.locator("#arrivalInterval").fill("1");
-      await page.locator("#maxQueue").fill("50");
+      await page.locator("#tickMs").fill(String(testConfig.tickMs));
+      await page.locator("#greenTicks").fill(String(testConfig.greenTicks));
+      await page.locator("#yellowTicks").fill(String(testConfig.yellowTicks));
+      await page.locator("#arrivalInterval").fill(String(testConfig.arrivalInterval));
+      await page.locator("#maxQueue").fill(String(testConfig.maxQueue));
       await page.locator("#maxQueue").press("Enter");
 
-      await expect(page.getByTestId("accepted-tickMs")).toHaveText("100");
-      await expect(page.getByTestId("accepted-greenTicks")).toHaveText("10");
-      await expect(page.getByTestId("accepted-maxQueue")).toHaveText("50");
+      await expect(page.getByTestId("accepted-tickMs")).toHaveText(String(testConfig.tickMs));
+      await expect(page.getByTestId("accepted-greenTicks")).toHaveText(String(testConfig.greenTicks));
+      await expect(page.getByTestId("accepted-maxQueue")).toHaveText(String(testConfig.maxQueue));
 
       // Submit an invalid value through the browser UI and capture the real
       // backend response. Zero is outside the accepted GREEN duration range.
@@ -156,15 +187,15 @@ test.describe("live C++ simulation browser integration", () => {
       );
       await expect(page.locator("#greenTicks-error")).toBeVisible();
       await expect(page.getByRole("alert")).toBeVisible();
-      await expect(page.getByTestId("accepted-greenTicks")).toHaveText("10");
+      await expect(page.getByTestId("accepted-greenTicks")).toHaveText(String(testConfig.greenTicks));
 
       // Confirm directly from the backend snapshot that the rejected value
       // did not change the authoritative configuration.
       const snapshotAfterRejectedConfig = await readBackendSnapshot(backend);
-      expect(snapshotAfterRejectedConfig.config.greenTicks).toBe(10);
+      expect(snapshotAfterRejectedConfig.config.greenTicks).toBe(testConfig.greenTicks);
 
       // Correct the draft and verify that the backend accepts it.
-      await page.locator("#greenTicks").fill("10");
+      await page.locator("#greenTicks").fill(String(testConfig.greenTicks));
 
       const acceptedConfigResponsePromise = page.waitForResponse((response) => {
         const url = new URL(response.url());
@@ -181,7 +212,7 @@ test.describe("live C++ simulation browser integration", () => {
       const acceptedConfigResponse = await acceptedConfigResponsePromise;
       expect(acceptedConfigResponse.status()).toBe(200);
 
-      await expect(page.getByTestId("accepted-greenTicks")).toHaveText("10");
+      await expect(page.getByTestId("accepted-greenTicks")).toHaveText(String(testConfig.greenTicks));
       await expect(page.locator("#greenTicks")).toHaveAttribute(
         "aria-invalid",
         "false",
@@ -194,27 +225,43 @@ test.describe("live C++ simulation browser integration", () => {
       const startButton = page.getByRole("button", { name: "Start" });
       await startButton.focus();
       await page.keyboard.press("Enter");
-      await expect(dashboard.getByText("running", { exact: true })).toBeVisible();
+      await monitorLink.click();
+      await expect(scene).toBeVisible();
+      await expect(page.getByText("Simulation started")).toBeVisible({ timeout: 8_000 });
 
-      const generatedCount = dashboard
+      const northQueue = page.getByRole("list", { name: "North FIFO vehicle queue" });
+      await expect(page.getByText(/Vehicle #\d+/).first()).toBeVisible({ timeout: 15_000 });
+      await expect(northQueue).toBeVisible();
+      await page.screenshot({ path: resolve(screenshotDirectory, "03-monitor-active-vehicles.png"), fullPage: true });
+
+      const waitingTicksBeforeNavigation = await page.locator(".header-tick strong").textContent();
+      await controlLink.click();
+      await expect
+        .poll(async () => page.locator(".header-tick strong").textContent(), { timeout: 8_000 })
+        .not.toBe(waitingTicksBeforeNavigation);
+      await expect(page.getByText("Running", { exact: true }).first()).toBeVisible();
+      await monitorLink.click();
+
+      const generatedCount = page
         .locator("dt")
-        .filter({ hasText: /^Vehicles generated$/ })
+        .filter({ hasText: /^Generated$/ })
         .locator("xpath=following-sibling::dd");
-      const processedCount = dashboard
+      const processedCount = page
         .locator("dt")
-        .filter({ hasText: /^Vehicles processed$/ })
+        .filter({ hasText: /^Processed$/ })
         .locator("xpath=following-sibling::dd");
-      const waitingCount = dashboard
+      const waitingCount = page
         .locator("dt")
-        .filter({ hasText: /^Vehicles waiting$/ })
+        .filter({ hasText: /^Waiting$/ })
         .locator("xpath=following-sibling::dd");
 
+      await controlLink.click();
       await expect(generatedCount).toHaveText(/[1-9]\d*/, { timeout: 15_000 });
       await expect(processedCount).toHaveText(/\d+/);
       await expect(waitingCount).toHaveText(/\d+/);
-      await expect(page.getByText(/Vehicle #\d+/).first()).toBeVisible({
-        timeout: 15_000,
-      });
+      // Keep the full-queue comparison on a paused snapshot. Waiting for the
+      // backend transition avoids relying on a UI poll while the fast-running
+      // simulation keeps changing during the browser assertion sequence.
 
       const initialStats = {
         generated: Number(await generatedCount.textContent()),
@@ -241,49 +288,71 @@ test.describe("live C++ simulation browser integration", () => {
         )
         .toBe(true);
 
-      // Observe transient signal phases from direct backend snapshots. The UI's
-      // one-second polling interval cannot reliably capture a 200 ms yellow
-      // phase, so this assertion does not depend on a rendered frame.
+      await page.getByRole("button", { name: "Pause" }).click();
+      await expect(page.getByText("Paused", { exact: true }).first()).toBeVisible();
+      const pausedSnapshot = await readBackendSnapshot(backend);
+      await expect(generatedCount).toHaveText(String(pausedSnapshot.statistics.vehiclesGenerated));
+      await expect(processedCount).toHaveText(String(pausedSnapshot.statistics.vehiclesProcessed));
+      await expect(waitingCount).toHaveText(String(pausedSnapshot.statistics.vehiclesWaiting));
+      await monitorLink.click();
+
+      // The extended but valid yellow phase gives the one-second UI poll time
+      // to render an actual backend state transition in the scene.
       await expect
         .poll(
-          async () => {
-            const snapshot = await readBackendSnapshot(backend);
-            const states = [
-              snapshot.activeSignal?.toLowerCase(),
-              ...(snapshot.approaches ?? []).map((approach) =>
-                approach.signal?.toLowerCase(),
-              ),
-              ...(snapshot.signalStates ?? []).map((signal) =>
-                signal.state?.toLowerCase(),
-              ),
-            ];
-
-            return states.includes("yellow");
-          },
-          { timeout: 15_000, intervals: [25, 40, 60] },
+          () => page.locator(".intersection-map circle[fill='#fbbf24']").count(),
+          { timeout: 20_000, intervals: [100, 250, 500] },
         )
-        .toBe(true);
+        .toBeGreaterThan(0);
+      await page.screenshot({ path: resolve(screenshotDirectory, "04-signal-transition.png"), fullPage: true });
+      await expect(page.getByText("Simulation paused")).toBeVisible({ timeout: 8_000 });
+      await expect(page.getByText(/signal changed/).first()).toBeVisible({ timeout: 8_000 });
+      await page.screenshot({ path: resolve(screenshotDirectory, "05-activity-log.png"), fullPage: true });
 
-      await expect(
-        page
-          .getByRole("img", {
-            name: /approach signal: (RED|YELLOW|GREEN)/,
-          })
-          .first(),
-      ).toBeVisible();
+      await expect(page.getByRole("button", { name: "Resume" })).toBeVisible();
+      await expect(page.getByText("Simulation paused")).toBeVisible({ timeout: 8_000 });
 
-      await page.getByRole("button", { name: "Pause" }).click();
-      await expect(dashboard.getByText("paused", { exact: true })).toBeVisible();
+      for (const approach of pausedSnapshot.approaches ?? []) {
+        const fifo = page.getByRole("list", {
+          name: `${approach.name} FIFO vehicle queue`,
+        });
+        if (approach.vehicles.length === 0) {
+          await expect(fifo).toHaveCount(0);
+          continue;
+        }
+        const renderedRows = await fifo.locator("li").allTextContents();
+        const renderedIds = renderedRows.map((row) => Number(row.match(/Vehicle #(\d+)/)?.[1]));
+        expect(renderedIds).toEqual(approach.vehicles.map((vehicle) => vehicle.id));
+      }
 
+      const pausedTick = await page.locator(".header-tick strong").textContent();
+      await controlLink.click();
       await page.getByRole("button", { name: "Resume" }).click();
-      await expect(dashboard.getByText("running", { exact: true })).toBeVisible();
+      await expect(page.getByText("Running", { exact: true }).first()).toBeVisible();
+      await monitorLink.click();
+      await expect
+        .poll(async () => page.locator(".header-tick strong").textContent(), { timeout: 8_000 })
+        .not.toBe(pausedTick);
 
+      await controlLink.click();
       await page.getByRole("button", { name: "Reset" }).click();
-      await expect(dashboard.getByText("stopped", { exact: true })).toBeVisible();
+      await expect(page.getByText("Stopped", { exact: true }).first()).toBeVisible();
       await expect(generatedCount).toHaveText("0");
       await expect(processedCount).toHaveText("0");
       await expect(waitingCount).toHaveText("0");
+
+      // Restore the actual configuration observed before this browser run.
+      for (const [field, value] of Object.entries(originalConfig)) {
+        await page.locator(`#${field}`).fill(String(value));
+      }
+      await page.getByRole("button", { name: "Apply configuration" }).click();
+      for (const [field, value] of Object.entries(originalConfig)) {
+        await expect(page.getByTestId(`accepted-${field}`)).toHaveText(String(value));
+      }
+      expect((await readBackendSnapshot(backend)).config).toEqual(originalConfig);
     } finally {
+      await backend.post("/api/simulation/reset").catch(() => undefined);
+      await backend.put("/api/simulation/config", { data: originalConfig }).catch(() => undefined);
       await backend.dispose();
     }
   });
@@ -293,14 +362,17 @@ test.describe("live C++ simulation browser integration", () => {
   }) => {
     await page.goto("/");
     await expect(
-      page.getByRole("heading", { name: "Intersection overview" }),
+      page.getByRole("heading", { name: "Control Centre" }),
     ).toBeVisible();
+    expect(
+      await page.getByRole("link", { name: "Control Centre" }).first().getAttribute("aria-current"),
+    ).toBe("page");
 
     for (const width of viewportWidths) {
       await page.setViewportSize({ width, height: 900 });
 
       await expect(
-        page.getByRole("heading", { name: "Intersection overview" }),
+        page.getByRole("heading", { name: "Control Centre" }),
       ).toBeVisible();
 
       const hasHorizontalOverflow = await page.evaluate(
@@ -315,6 +387,20 @@ test.describe("live C++ simulation browser integration", () => {
         page.getByRole("heading", { name: "Simulation configuration" }),
       ).toBeVisible();
       await expect(page.getByRole("button", { name: "Start" })).toBeVisible();
+
+      await page.getByRole("link", { name: "Simulation Monitor" }).first().click();
+      await expect(page.getByRole("heading", { name: "Simulation Monitor" })).toBeVisible();
+      await expect(page.getByRole("img", { name: "Live four-way intersection and vehicle queues" })).toBeVisible();
+      expect(
+        await page.getByRole("link", { name: "Simulation Monitor" }).first().getAttribute("aria-current"),
+      ).toBe("page");
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth),
+      ).toBe(false);
+      if (width === 390) {
+        await page.screenshot({ path: resolve(process.cwd(), "..", "verification-screenshots", "06-mobile-monitor.png"), fullPage: true });
+      }
+      await page.getByRole("link", { name: "Control Centre" }).first().click();
     }
   });
 
