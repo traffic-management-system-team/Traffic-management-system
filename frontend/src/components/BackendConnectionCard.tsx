@@ -2,12 +2,14 @@ import type { BackendStatus } from "../hooks/useBackendStatus";
 import { StatusBadge } from "./StatusBadge";
 
 interface BackendConnectionCardProps {
+  compact?: boolean;
   status: BackendStatus;
   onRetry: () => void;
   isBusy: boolean;
 }
 
 export function BackendConnectionCard({
+  compact = false,
   status,
   onRetry,
   isBusy,
@@ -22,7 +24,7 @@ export function BackendConnectionCard({
   return (
     <section
       aria-labelledby="connection-title"
-      className="surface-card relative overflow-hidden p-6 sm:p-8"
+      className={`surface-card relative overflow-hidden ${compact ? "connection-card-compact p-4 sm:p-5" : "p-6 sm:p-8"}`}
     >
       <div aria-hidden="true" className="connection-glow" />
       <div className="relative z-10 flex flex-col gap-6">
@@ -41,7 +43,7 @@ export function BackendConnectionCard({
             </h2>
           </div>
           {displayedState ? (
-            <StatusBadge state={displayedState} />
+            compact ? null : <StatusBadge state={displayedState} />
           ) : (
             <span
               className={
@@ -59,22 +61,23 @@ export function BackendConnectionCard({
         <div className="connection-divider" />
 
         {connected ? (
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+          <div className={compact ? "connection-card-detail" : "flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"}>
             <div>
               <p className="text-sm leading-6 text-slate-300">
-                Live status is read from the C++ REST API. This shell does not
-                change simulation state.
+                {compact
+                  ? "Live state is provided by the local C++ simulation service."
+                  : "Live status is read from the C++ REST API. This shell does not change simulation state."}
               </p>
               <p className="mt-2 font-mono text-xs text-slate-500">
                 GET /api/simulation/state
               </p>
             </div>
-            <div className="rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-slate-300">
+            {!compact ? <div className="rounded-xl border border-white/10 bg-slate-950/50 px-4 py-3 text-sm text-slate-300">
               Tick{" "}
               <span className="ml-1 font-mono font-semibold text-white">
                 {status.snapshot.tickCount}
               </span>
-            </div>
+            </div> : null}
           </div>
         ) : (
           <div
