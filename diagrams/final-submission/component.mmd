@@ -1,0 +1,14 @@
+flowchart TB
+  Browser[React App ControlCentre SimulationMonitor] --> Hook[useBackendStatus and typed API client]
+  Hook -->|same origin JSON REST| Host[Crow SimulationHttpServer]
+  Host --> Adapter[SimulationHttpAdapter]
+  Adapter -->|control and configuration| API[SimulationControlApi]
+  API --> Service[SimulationService mutex and single scheduler]
+  Adapter -->|GET state snapshot| Service
+  Service --> Model[SimModel]
+  Model --> Queue[QueueManager FIFO]
+  Model --> Vehicle[VehicleManager]
+  Model --> Traffic[TrafficManager and SignalCoordinator]
+  Model --> Stats[SimulationStatisticsManager]
+  Service -->|copied SimulationSnapshot| Serializer[serializeSimulationStateData]
+  Serializer -->|common JSON envelope through HTTP layer| Host

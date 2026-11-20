@@ -43,13 +43,13 @@ function vehiclePosition(id: ApproachId, index: number) {
   const spacing = 34;
   switch (id) {
     case "north":
-      return { x: 420, y: 222 - index * spacing };
+      return { x: 420, y: 209 - index * spacing };
     case "east":
-      return { x: 618 + index * spacing, y: 420 };
+      return { x: 631 + index * spacing, y: 420 };
     case "south":
-      return { x: 540, y: 498 + index * spacing };
+      return { x: 540, y: 511 + index * spacing };
     case "west":
-      return { x: 342 - index * spacing, y: 300 };
+      return { x: 329 - index * spacing, y: 300 };
   }
 }
 
@@ -136,18 +136,18 @@ function IntersectionScene({ snapshot }: { snapshot: SimulationSnapshot }) {
           <desc id="intersection-map-description">
             Actual backend vehicles are shown front-first on their approach road, facing the stop line. {snapshot.approaches.map((approach) => `${approach.name}: ${approach.signal}, ${approach.queueLength} queued`).join(". ")}.
           </desc>
-          <rect width="960" height="720" fill="#0b1522" />
-          <rect x="350" y="0" width="260" height="720" fill="#1a2939" />
-          <rect x="0" y="230" width="960" height="260" fill="#1a2939" />
+          <rect width="960" height="720" fill="#191e23" />
+          <rect x="350" y="0" width="260" height="720" fill="#30373e" />
+          <rect x="0" y="230" width="960" height="260" fill="#30373e" />
 
-          <path d="M350 0v720 M610 0v720 M0 230h960 M0 490h960" fill="none" stroke="#334155" strokeWidth="3" />
+          <path d="M350 0v230 M350 490v230 M610 0v230 M610 490v230 M0 230h350 M610 230h350 M0 490h350 M610 490h350" fill="none" stroke="#59636d" strokeWidth="3" />
           <path d="M480 0v230 M480 490v230 M0 360h350 M610 360h350" fill="none" stroke="#8290a1" strokeWidth="2" strokeDasharray="20 16" opacity="0.7" />
           <path d="M350 230h130 M480 490h130 M350 230v130 M610 360v130" fill="none" stroke="#f8fafc" strokeWidth="6" opacity="0.9" />
 
-          <text x="390" y="36" fill="#94a3b8" fontSize="15" fontWeight="700" letterSpacing="2">NORTH · INBOUND</text>
-          <text x="768" y="337" fill="#94a3b8" fontSize="15" fontWeight="700" letterSpacing="2">EAST · INBOUND</text>
-          <text x="490" y="690" fill="#94a3b8" fontSize="15" fontWeight="700" letterSpacing="2">SOUTH · INBOUND</text>
-          <text x="28" y="280" fill="#94a3b8" fontSize="15" fontWeight="700" letterSpacing="2">WEST · INBOUND</text>
+          <text x="390" y="36" fill="#94a3b8" fontSize="22" fontWeight="650" letterSpacing="1">NORTH</text>
+          <text x="768" y="337" fill="#94a3b8" fontSize="22" fontWeight="650" letterSpacing="1">EAST</text>
+          <text x="490" y="690" fill="#94a3b8" fontSize="22" fontWeight="650" letterSpacing="1">SOUTH</text>
+          <text x="28" y="280" fill="#94a3b8" fontSize="22" fontWeight="650" letterSpacing="1">WEST</text>
 
           <path d="M420 334v48m0 0-8-9m8 9 8-9 M486 420h-48m0 0 9-8m-9 8 9 8 M540 386v-48m0 0-8 9m8-9 8 9 M474 300h48m0 0-9-8m9 8-9 8" fill="none" stroke="#67e8f9" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" opacity="0.7" />
 
@@ -368,14 +368,27 @@ export function SimulationMonitor({
   return (
     <section id="page-intersection" aria-labelledby="intersection-page-title">
       <header className="page-intro monitor-page-intro">
-        <p className="eyebrow">Traffic operations / 02</p>
         <h1 id="intersection-page-title" className="page-title">Simulation Monitor</h1>
         <p className="page-description">
           Live backend queues and signal phases arranged around a top-down view of the junction.
         </p>
       </header>
 
-      <IntersectionScene snapshot={snapshot} />
+      <div className="monitor-layout">
+        <IntersectionScene snapshot={snapshot} />
+        <aside className="monitor-sidebar" aria-label="Simulation operations">
+          <SimulationControls
+            compact
+            state={snapshot.state}
+            pendingOperation={pendingOperation}
+            connected={connected}
+            error={actionError}
+            onAction={onAction}
+            onDismissError={onDismissActionError}
+          />
+          <ActivityLog snapshot={snapshot} />
+        </aside>
+      </div>
 
       <section className="mt-5" aria-labelledby="queues-title">
         <div className="section-heading-row mb-3">
@@ -396,19 +409,6 @@ export function SimulationMonitor({
           ))}
         </div>
       </section>
-
-      <div className="mt-5 grid items-start gap-5 xl:grid-cols-[minmax(18rem,0.8fr)_minmax(0,1.2fr)]">
-        <SimulationControls
-          compact
-          state={snapshot.state}
-          pendingOperation={pendingOperation}
-          connected={connected}
-          error={actionError}
-          onAction={onAction}
-          onDismissError={onDismissActionError}
-        />
-        <ActivityLog snapshot={snapshot} />
-      </div>
 
       <p className="mt-4 text-xs leading-5 text-slate-500">
         No countdown is displayed because the API snapshot does not provide a phase timer. Vehicles are positioned as queues, not animated, because the backend does not expose movement coordinates.

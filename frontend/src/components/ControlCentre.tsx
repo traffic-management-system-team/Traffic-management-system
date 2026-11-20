@@ -25,9 +25,9 @@ interface ControlCentreProps {
 }
 
 const signalTone: Record<SignalState, string> = {
-  red: "bg-rose-400 shadow-[0_0_14px_rgba(251,113,133,0.55)]",
-  yellow: "bg-amber-300 shadow-[0_0_14px_rgba(252,211,77,0.55)]",
-  green: "bg-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.55)]",
+  red: "bg-rose-400",
+  yellow: "bg-amber-300",
+  green: "bg-emerald-400",
   unknown: "bg-slate-500",
 };
 
@@ -82,7 +82,7 @@ function PerformanceMetrics({ snapshot }: { snapshot: SimulationSnapshot }) {
           <p className="eyebrow">Live performance</p>
           <h2 id="performance-title" className="section-title">Simulation throughput</h2>
         </div>
-        <span className="subtle-chip">Tick {snapshot.tickCount.toLocaleString()}</span>
+
       </div>
       <dl aria-label="Performance overview" className="performance-grid">
         {metrics.map((metric) => (
@@ -118,7 +118,6 @@ export function ControlCentre({
   return (
     <section id="page-overview" aria-labelledby="overview-title">
       <header className="page-intro">
-        <p className="eyebrow">Traffic operations / 01</p>
         <h1 id="overview-title" className="page-title">Control Centre</h1>
         <p className="page-description">
           Operate the simulation, tune its parameters and review live performance at a glance.
@@ -134,33 +133,7 @@ export function ControlCentre({
 
       {snapshot ? (
         <>
-          <section aria-labelledby="approach-summary-title" className="control-panel mt-5">
-            <div className="section-heading-row">
-              <div>
-                <p className="eyebrow">Intersection status</p>
-                <h2 id="approach-summary-title" className="section-title">Approach summary</h2>
-              </div>
-              <span className="subtle-chip">
-                Active: {snapshot.activeApproach === "unknown"
-                  ? "Unavailable"
-                  : snapshot.approaches.find((approach) => approach.id === snapshot.activeApproach)?.name ?? "Unavailable"}
-              </span>
-            </div>
-            <div className="approach-summary-grid">
-              {snapshot.approaches.map((approach) => (
-                <ApproachSummaryCard
-                  key={approach.id}
-                  approach={approach}
-                  active={snapshot.activeApproach === approach.id}
-                  capacity={snapshot.config.maxQueue}
-                />
-              ))}
-            </div>
-          </section>
-
-          <PerformanceMetrics snapshot={snapshot} />
-
-          <div className="mt-5 grid items-start gap-5 xl:grid-cols-[minmax(17rem,0.8fr)_minmax(0,1.2fr)]">
+          <div className="operator-controls">
             <SimulationControls
               state={snapshot.state}
               pendingOperation={pendingOperation}
@@ -169,6 +142,11 @@ export function ControlCentre({
               onAction={onAction}
               onDismissError={onDismissActionError}
             />
+          </div>
+
+          <PerformanceMetrics snapshot={snapshot} />
+
+          <div className="centre-details">
             <ConfigurationForm
               acceptedConfig={snapshot.config}
               locked={configurationLocked}
@@ -178,6 +156,30 @@ export function ControlCentre({
               onSubmit={onUpdateConfiguration}
               onClearFeedback={onClearConfigurationError}
             />
+            <section aria-labelledby="approach-summary-title" className="control-panel mt-5">
+              <div className="section-heading-row">
+                <div>
+                  <p className="eyebrow">Intersection status</p>
+                  <h2 id="approach-summary-title" className="section-title">Approach summary</h2>
+                </div>
+                <span className="subtle-chip">
+                  Active: {snapshot.activeApproach === "unknown"
+                    ? "Unavailable"
+                    : snapshot.approaches.find((approach) => approach.id === snapshot.activeApproach)?.name ?? "Unavailable"}
+                </span>
+              </div>
+              <div className="approach-summary-grid">
+                {snapshot.approaches.map((approach) => (
+                  <ApproachSummaryCard
+                    key={approach.id}
+                    approach={approach}
+                    active={snapshot.activeApproach === approach.id}
+                    capacity={snapshot.config.maxQueue}
+                  />
+                ))}
+              </div>
+            </section>
+
           </div>
         </>
       ) : (

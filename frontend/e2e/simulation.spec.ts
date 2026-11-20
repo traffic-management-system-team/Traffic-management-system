@@ -4,6 +4,7 @@ import { mkdirSync } from "node:fs";
 import { resolve } from "node:path";
 
 const viewportWidths = [390, 768, 1440];
+const screenshotDirectory = resolve(process.cwd(), process.env.TMS_SCREENSHOT_DIR ?? "../verification-screenshots");
 
 type BackendSnapshot = {
   state: string;
@@ -81,7 +82,6 @@ test.describe("live C++ simulation browser integration", () => {
     }
 
     const backend = await request.newContext({ baseURL });
-    const screenshotDirectory = resolve(process.cwd(), "..", "verification-screenshots");
     mkdirSync(screenshotDirectory, { recursive: true });
     const originalSnapshot = await readBackendSnapshot(backend);
     const originalConfig = { ...originalSnapshot.config };
@@ -94,6 +94,7 @@ test.describe("live C++ simulation browser integration", () => {
     };
 
     try {
+      await page.setViewportSize({ width: 1440, height: 900 });
       await page.goto("/");
 
       await expect(
@@ -388,6 +389,11 @@ test.describe("live C++ simulation browser integration", () => {
       ).toBeVisible();
       await expect(page.getByRole("button", { name: "Start" })).toBeVisible();
 
+      if (width === 390) {
+        mkdirSync(screenshotDirectory, { recursive: true });
+        await page.screenshot({ path: resolve(screenshotDirectory, "07-mobile-control-centre.png"), fullPage: true });
+      }
+
       await page.getByRole("link", { name: "Simulation Monitor" }).first().click();
       await expect(page.getByRole("heading", { name: "Simulation Monitor" })).toBeVisible();
       await expect(page.getByRole("img", { name: "Live four-way intersection and vehicle queues" })).toBeVisible();
@@ -398,7 +404,7 @@ test.describe("live C++ simulation browser integration", () => {
         await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth),
       ).toBe(false);
       if (width === 390) {
-        await page.screenshot({ path: resolve(process.cwd(), "..", "verification-screenshots", "06-mobile-monitor.png"), fullPage: true });
+        await page.screenshot({ path: resolve(screenshotDirectory, "06-mobile-monitor.png"), fullPage: true });
       }
       await page.getByRole("link", { name: "Control Centre" }).first().click();
     }

@@ -1,5 +1,9 @@
 # Current Web Architecture
 
+## Final submission reference
+
+The reconciled [SAD revision 1.5](SAD/SAD_Traffic_Management_System_Final_Submission_2026-11-19.md) has reviewed [Word](SAD/SAD_Traffic_Management_System_FINAL_REVIEW_SPRINT3_2026-11-19.docx) and [PDF](SAD/SAD_Traffic_Management_System_FINAL_REVIEW_SPRINT3_2026-11-19.pdf) editions, preserving all four rendered diagrams. Final diagram sources are under diagrams/final-submission/. See [final submission status](FINAL_SUBMISSION_STATUS_2026-11-20.md) for the current edition and evidence limits. The original v1.3 documents remain historical.
+
 ## Status and scope
 
 The selected target architecture is a React, TypeScript, Vite and Tailwind CSS
@@ -11,9 +15,7 @@ backend snapshots and polls at a state-dependent interval.
 
 Automated Vitest component/hook tests cover dashboard rendering, snapshot
 refreshes, FIFO display, signal labels, controls, keyboard form submission and
-adaptive polling. A full cross-browser Playwright end-to-end suite and manual
-accessibility audit are deployment-level validation still to be performed;
-they are not missing dashboard implementation.
+adaptive polling. The existing Chromium Playwright suite exercises the real backend and both pages. The 19 November audit passed 3/3 browser tests. Broader cross-browser and manual accessibility evaluation remains unexecuted.
 
 The GUI-based Part-1 SRS, SAD, test plan, sprint records, and UML diagrams are
 historical design artifacts for the earlier desktop prototype. They remain
@@ -53,8 +55,7 @@ Crow HTTP host
   every five seconds while paused, and every ten seconds while stopped.
   Responsive CSS breakpoints, focus-visible styles, descriptive signal labels,
   keyboard form submission and reduced-motion support are implemented.
-  Vitest component/hook tests cover these behaviors; full cross-browser E2E and
-  manual accessibility audits remain deployment-level evidence.
+  Vitest component/hook tests cover these behaviors; the real-backend Chromium suite passes in the recorded audit, while broader browser and manual accessibility evaluation remains unexecuted.
 - **HTTP host and adapter:** One Crow server registers the six approved endpoints. The adapter translates control/configuration HTTP requests into the existing framework-neutral `SimulationControlApi` calls. The state route serializes a copied snapshot from the same service.
 - **Service layer:** One shared `SimulationService` is the authoritative simulation owner and sole scheduler/tick source. It synchronizes commands, configuration, ticks, and snapshots.
 - **Simulation core:** `tms_core` contains the simulation model, validation, configuration, statistics aggregation and control API logic. It has no Crow or nlohmann-json dependency.

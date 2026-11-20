@@ -116,7 +116,7 @@ export default function App() {
           <SectionNavigation currentPage={currentPage} />
         </div>
 
-        <main id="overview" className="mx-auto w-full max-w-7xl px-4 pb-16 pt-8 sm:px-6 sm:pt-10 lg:px-8">
+        <main id="overview" className="workspace-main">
           <section
             id="control-centre"
             aria-label="Control Centre page"
@@ -155,7 +155,6 @@ export default function App() {
               />
             ) : (
               <section className="page-intro">
-                <p className="eyebrow">Traffic operations / 02</p>
                 <h1 className="page-title">Simulation Monitor</h1>
                 <BackendConnectionCard
                   status={status}

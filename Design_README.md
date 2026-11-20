@@ -2,6 +2,10 @@
 
 This page separates the original Part-1 design baseline from the implemented web application. Both are retained for project traceability, but they describe different stages of the project.
 
+## Final submission revisions dated 19 November 2026
+
+Reviewed SRS, SAD and Test Plan revision 1.5 Markdown, Word and PDF editions are linked from [Final submission status](docs/FINAL_SUBMISSION_STATUS_2026-11-20.md). The reviewed Word/PDF filenames contain FINAL_REVIEW_SPRINT3. All 18 pages were visually inspected; the original v1.3 documents remain the historical baseline. The Sprint 3 label is retrospective. Historical results and limitations remain in docs/FINAL_VERIFICATION_EVIDENCE_2026-11-19.md.
+
 ## 1. Original Part-1 design baseline (historical)
 
 The Part-1 v1.3 SRS, SAD, Test Plan, sprint backlog and work-distribution documents were prepared for the earlier GUI-oriented desktop prototype. They are retained as the approved historical design records and should not be interpreted as a description of the current web deployment architecture.

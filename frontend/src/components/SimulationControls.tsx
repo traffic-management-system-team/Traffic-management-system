@@ -61,7 +61,7 @@ export function SimulationControls({
         <p
           aria-live="polite"
           aria-atomic="true"
-          className="rounded-full border border-white/10 bg-slate-950/40 px-3 py-1.5 text-xs text-slate-300"
+          className="text-xs text-slate-300"
         >
           Backend state: <span className="font-semibold text-white">{state}</span>
         </p>
@@ -69,9 +69,7 @@ export function SimulationControls({
 
       {!compact ? (
         <p id="lifecycle-help" className="mt-3 text-sm leading-6 text-slate-400">
-          Start is available while stopped, Pause while running, and Resume while
-          paused. Reset is available in any state. The displayed state is refreshed
-          from the backend after each successful action.
+          Reset is available in every state.
         </p>
       ) : null}
 

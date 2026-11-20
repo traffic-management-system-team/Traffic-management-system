@@ -1,3 +1,44 @@
+# Test Case Document Part 3
+
+## Final submission reconciliation
+
+Reconciled 19 November 2026 for the 20 November 2026 viva. Source baseline 5cbdc012591221ccf300a9656b55bb1c5c38a2d2, branch feature/professional-traffic-ui, plus the seven existing uncommitted frontend redesign files. This documentation change does not commit or approve the redesign. Execution results below belong to the 19 November audit working tree. Historical results retain their original dates and revisions. No new execution is implied by this reconciliation.
+
+The table below links expected requirement behavior to existing executable tests and their recorded suite result. It does not claim a separate run for each conceptual test ID. TC-01–16 remain stable. Supplemental ST-01–07 map to real API/browser assertions. ST-08 broad manual/browser testing remains NOT RUN.
+
+| TC | Requirement | Expected behavior | Executable source | Actual recorded outcome |
+|---|---|---|---|---|
+| TC-01 | FR-01 | The system shall create vehicles according to the configured arrival mechanism. | tests/vehicle_manager_test.cpp::main; tests/simulation_service_test.cpp::testSnapshotAndFifo | PASS for inspected and executed scope |
+| TC-02 | FR-02 | The system shall assign each generated vehicle to the appropriate road/lane queue. | tests/queue_manager_test.cpp::main; tests/simulation_service_test.cpp::testSnapshotAndFifo | PASS for inspected and executed scope |
+| TC-03 | FR-03 | The system shall maintain each road/lane queue using FIFO ordering. | tests/queue_manager_test.cpp::main; tests/test_traffic_manager.cpp::testFifoOrder | PASS for inspected and executed scope |
+| TC-04 | FR-04 | The system shall maintain and display the traffic signal state for each controlled direction. | tests/test_traffic.cpp::testIndependentSignal; testSharedCoordinator; tests/simulation_state_serializer_test.cpp::testStateAndApproachSerialization | PASS for inspected and executed scope |
+| TC-05 | FR-05 | The system shall allow vehicles to leave a queue only when movement is permitted by the active signal state. | tests/test_traffic_manager.cpp::testRedSignalKeepsVehicleQueued; testYellowSignalKeepsVehicleQueued; testGreenSignalProcessesOneVehicle | PASS for inspected and executed scope |
+| TC-06 | FR-06 | The system shall update queue lengths when vehicles enter or leave queues. | tests/queue_length_test.cpp::main; tests/queue_manager_test.cpp::main | PASS for inspected and executed scope |
+| TC-07 | FR-07 | The system shall calculate traffic statistics including processed vehicle count and waiting-time information. | tests/simulation_statistics_manager_test.cpp; tests/simulation_api_contract_test.cpp; frontend/e2e/simulation.spec.ts | PASS for inspected and executed scope |
+| TC-08 | FR-08 | The system shall display the simulation state and statistics through the GUI. | frontend/src/App.test.tsx; frontend/src/components/IntersectionDashboard.test.tsx; frontend/e2e/simulation.spec.ts | PASS for inspected and executed scope |
+| TC-09 | FR-09 | The system shall allow the user to start, pause/resume and reset the simulation. | tests/simulation_service_test.cpp::testInitialStateAndTransitions; tests/simulation_control_api_test.cpp; tests/simulation_http_server_test.cpp | PASS for inspected and executed scope |
+| TC-10 | FR-10 | The system shall reject invalid simulation configuration values and prevent unsafe queue operations. | tests/input_validator_test.cpp; tests/simulation_control_api_test.cpp; tests/queue_empty_safety_test.cpp; tests/simulation_http_server_test.cpp | PASS for inspected and executed scope |
+| TC-11 | FR-11 | The system shall keep vehicles that cannot currently move in their respective queues. | tests/test_traffic_manager.cpp::testRedSignalKeepsVehicleQueued; testYellowSignalKeepsVehicleQueued | PASS for inspected and executed scope |
+| TC-12 | FR-12 | The system shall update the GUI after relevant simulation-state changes. | frontend/src/hooks/useBackendStatus.test.ts; frontend/src/App.test.tsx; frontend/e2e/simulation.spec.ts | PASS for inspected and executed scope |
+| TC-08 | NFR-01 | The main simulation state and controls shall be visible without navigating through multiple screens. | frontend/src/App.test.tsx; frontend/e2e/simulation.spec.ts (controls across both pages, navigation continuity, responsive layout) | PASS for inspected and executed scope |
+| TC-14 | NFR-02 | Normal simulation updates shall complete without noticeable GUI freezing on the target development system. | frontend/src/hooks/useBackendStatus.test.ts; frontend/e2e/simulation.spec.ts (functional responsiveness only) | PARTIAL |
+| TC-13 | NFR-03 | The application shall handle empty queues and invalid inputs without crashing. | tests/queue_empty_safety_test.cpp::main; tests/input_validator_test.cpp; tests/simulation_control_api_test.cpp | PASS for inspected and executed scope |
+| TC-15 | NFR-04 | Traffic signal, queue, vehicle and statistics logic shall be separated into maintainable modules. | tests/simulation_statistics_manager_test.cpp; docs/sprint-1/TC-15_Maintainability_Review.md | PASS for inspected and executed scope |
+| TC-15 | NFR-05 | Core simulation operations shall be implementable and verifiable as independent functions/modules. | Independent core test targets including simulation_statistics_manager_test; API contract tests use the public service/server interface | PASS for inspected and executed scope |
+| Review | NFR-06 | The source code shall avoid unnecessary platform-specific dependencies where practical. | GitHub Actions Windows/Ubuntu Debug and Release matrix | PASS for inspected and executed scope |
+| TC-03, TC-05 | NFR-07 | Queue operations shall preserve FIFO ordering and signal rules shall be consistently enforced. | tests/queue_manager_test.cpp::main; tests/test_traffic_manager.cpp::testFifoOrder and signal tests; tests/test_traffic.cpp | PASS for inspected and executed scope |
+| TC-14 | NFR-08 | GUI controls shall remain usable during normal simulation execution. | frontend/src/App.test.tsx; frontend/e2e/simulation.spec.ts | PASS for inspected and executed scope |
+| TC-10 | SEC-01 | The system shall validate all user-entered simulation configuration values before passing them to the simulation modules. | tests/input_validator_test.cpp; tests/simulation_control_api_test.cpp; tests/simulation_http_server_test.cpp | PASS for inspected and executed scope |
+| TC-13 | SEC-02 | The system shall prevent dequeue, removal or access operations on an empty queue. | tests/queue_empty_safety_test.cpp::main; tests/queue_manager_test.cpp::main | PASS for inspected and executed scope |
+| TC-04 | SEC-03 | The system shall reject invalid traffic-signal state transitions. | tests/test_traffic.cpp::testIndependentSignal checks RED->YELLOW rejection; testSharedCoordinator checks representative conflicting GREEN attempts | PASS for inspected and executed scope |
+| TC-16 | SEC-04 | The implementation shall avoid unsafe memory access and unchecked buffer operations. | TC-16 completed source review; Clang ASan/UBSan and Clang Static Analyzer | PARTIAL |
+
+NFR-01 browser source and tests exist. State/lifecycle controls are available on each page. Full configuration and detailed monitor data occupy their respective pages. Fresh native build completion is NOT VERIFIED. See the evidence ledger for initial failures and final passes.
+
+## Preserved historical test case document
+
+All following results apply to the original 42a57c4 baseline.
+
 
 # Test Case Document — Part 3
 

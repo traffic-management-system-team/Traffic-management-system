@@ -1,0 +1,26 @@
+sequenceDiagram
+  participant Scheduler as Service scheduler
+  participant Model as SimModel
+  participant Traffic as TrafficManager
+  participant Queue as QueueManager
+  participant Stats as StatisticsManager
+  participant Vehicles as VehicleManager
+  Scheduler->>Model: tick under service mutex
+  Model->>Model: increment logical tick when running
+  loop each approach
+    Model->>Traffic: processNextVehicle
+    Traffic->>Traffic: require matching approach and GREEN
+    opt matching GREEN approach and nonempty queue
+      Traffic->>Queue: dequeue front
+      Model->>Vehicles: remove processed identity
+      Model->>Stats: record completed vehicle waiting ticks
+      Model->>Model: erase arrival tick record
+    end
+  end
+  opt arrival interval reached and rotating approach below capacity
+    Model->>Vehicles: createVehicle
+    Model->>Queue: addVehicle
+    Model->>Model: record arrival tick
+    Model->>Stats: recordGenerated
+  end
+  Model->>Model: advanceSignalPhase

@@ -1,5 +1,32 @@
 # Code Coverage Report â€” Part 3
 
+## Final submission reconciliation 19 November 2026
+
+Reconciled 19 November 2026 for the 20 November 2026 viva. Source baseline 5cbdc012591221ccf300a9656b55bb1c5c38a2d2, branch feature/professional-traffic-ui, plus the seven existing uncommitted frontend redesign files. This documentation change does not commit or approve the redesign. Execution results below belong to the 19 November audit working tree. Historical results retain their original dates and revisions. No new execution is implied by this reconciliation.
+
+## Current frontend and historical native code coverage
+
+| Metric | Covered / total | Percent | Scope |
+|---|---|---|---|
+| Frontend lines | 271/297 | 91.24% | 19 Nov audit working tree, V8 |
+| Frontend statements | 282/311 | 90.67% | Same |
+| Frontend functions | 85/91 | 93.40% | Same |
+| Historical C++ source line/block | 1090/1219 | 89.42% | 42a57c4, MSVC collector, XML independently recalculated in audit |
+
+The V8 run passed 33/33 tests. It includes frontend src TS/TSX and excludes CSS, native code and Playwright execution. Uncovered examples are App.tsx 134,153–161, main.tsx 6–12, api/client.ts 103,115, api/errors.ts 51, ConfigurationForm.tsx 82 and SimulationMonitor.tsx 48,52,288. Line numbers refer to the audit working tree. useBackendStatus has 88.04% lines and includes error/polling paths needing further exercise.
+
+Historical native scope is the deduplicated union of project src/include lines represented across instrumented test executables. It excludes the standalone api_server_main.cpp runtime and separates test/dependency sources. Important gaps include HTTP server startup/shutdown/failure paths (72.99% historical lines) and defensive service/response paths. Source/backend working tree is unchanged, but no fresh native instrumentation was performed. The interrupted rebuild is not new coverage evidence.
+
+Fresh raw V8 output was directed to TEMP but its durable availability was not established. The exact command and counts are retained in the ledger. Historical native XML/raw .coverage/logs remain in the existing untracked coverage directory. The detailed historical file table below remains valid only for its stated old revision. No arbitrary pass threshold or complete production coverage claim is made.
+
+Full commands, initial failures, successful reruns, environment and scope are in [Final verification evidence](FINAL_VERIFICATION_EVIDENCE_2026-11-19.md). This is a documentation refresh of verified recorded evidence, not a new test run.
+
+## Preserved historical report
+
+The original report follows verbatim. All its dates, counts, PASS labels, conclusions and source claims apply to its original revision. The final submission status is the reconciliation above. An unchanged backup is also in docs/history/final-reconciliation-2026-11-19/docs/Code_Coverage_Report_Part3.md.
+
+# Code Coverage Report â€” Part 3
+
 **Repository:** https://github.com/traffic-management-system-team/Traffic-management-system
 **Source commit:** `42a57c45311551058c41ccf54fec8c2ca88215d2`
 **Measured:** 2026-11-16

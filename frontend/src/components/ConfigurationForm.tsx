@@ -122,7 +122,7 @@ export function ConfigurationForm({
         </p>
       </div>
 
-      <div className="mt-5 rounded-xl border border-white/10 bg-slate-950/40 p-4">
+      <div className="mt-5 rounded-sm border border-white/10 bg-slate-950/40 p-4">
         <h3 className="text-xs font-semibold uppercase tracking-[0.14em] text-slate-400">
           Last accepted by server
         </h3>
@@ -163,7 +163,7 @@ export function ConfigurationForm({
                   value={draft[key]}
                   aria-invalid={error ? "true" : "false"}
                   aria-describedby={error ? `${helpId} ${errorId}` : helpId}
-                  className="mt-2 w-full rounded-xl border border-white/15 bg-slate-950/55 px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-600 focus-visible:border-cyan-300/70 focus-visible:ring-2 focus-visible:ring-cyan-300/25 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="mt-2 w-full rounded-sm border border-white/15 bg-slate-950/55 px-3 py-2.5 text-sm text-white outline-none transition placeholder:text-slate-600 focus-visible:border-cyan-300/70 focus-visible:ring-2 focus-visible:ring-cyan-300/25 disabled:cursor-not-allowed disabled:opacity-50"
                   onChange={(event) => updateDraft(key, event.currentTarget.value)}
                 />
                 <p id={helpId} className="mt-1.5 text-xs text-slate-500">
@@ -181,7 +181,7 @@ export function ConfigurationForm({
 
         {feedback && (
           <p
-            className="mt-4 rounded-xl border border-rose-300/20 bg-rose-950/30 p-3 text-sm text-rose-100"
+            className="mt-4 rounded-sm border border-rose-300/20 bg-rose-950/30 p-3 text-sm text-rose-100"
             role="alert"
             aria-live="assertive"
           >
@@ -190,7 +190,7 @@ export function ConfigurationForm({
         )}
 
         {locked && (
-          <p className="mt-4 rounded-xl border border-amber-200/15 bg-amber-950/20 p-3 text-sm leading-6 text-amber-100" role="status">
+          <p className="mt-4 rounded-sm border border-amber-200/15 bg-amber-950/20 p-3 text-sm leading-6 text-amber-100" role="status">
             Configuration is locked unless the backend reports a stopped
             simulation with no ticks or generated vehicles. Reset the simulation
             before applying new settings after activity.

@@ -1,3 +1,23 @@
+# System Validation Report — Part 3
+
+## Final submission reconciliation 19 November 2026
+
+Reconciled 19 November 2026 for the 20 November 2026 viva. Source baseline 5cbdc012591221ccf300a9656b55bb1c5c38a2d2, branch feature/professional-traffic-ui, plus the seven existing uncommitted frontend redesign files. This documentation change does not commit or approve the redesign. Execution results below belong to the 19 November audit working tree. Historical results retain their original dates and revisions. No new execution is implied by this reconciliation.
+
+## Current system validation results
+
+The 19 November audit's real-backend Chromium suite passed 3/3 after starting the local C++ API. It exercises both Control Centre and Simulation Monitor, valid/invalid configuration, preservation of accepted config, lifecycle Start/Pause/Resume/Reset, live statistics, actual backend FIFO order, signals, detected activity, navigation continuity, keyboard skip link and widths 390/768/1440 without horizontal overflow. Configuration is restored after the integration test. Expected conflicts and rejected validation are exercised.
+
+The first browser attempt failed 2/3 because no API listened at 127.0.0.1:18080, yielding proxy 502/ECONNREFUSED. This was an environment setup failure. After API startup the suite passed 3/3 in 28.7 seconds. These are automated checks. Fresh manual visual, screen-reader, broad browser and deployed smoke testing are not claimed. Existing redesign screenshots were produced in the earlier visual phase and are not fresh audit captures.
+
+Backend state remains authoritative. The map shows actual stationary queue markers rather than physical trajectories. Activity is inferred between snapshots and can miss brief events. These are implementation limits reflected in the final SRS/SAD. Existing Release binaries powered this run. Fresh native rebuild completion remains NOT VERIFIED.
+
+Full commands, initial failures, successful reruns, environment and scope are in [Final verification evidence](FINAL_VERIFICATION_EVIDENCE_2026-11-19.md). This is a documentation refresh of verified recorded evidence, not a new test run.
+
+## Preserved historical report
+
+The original report follows verbatim. All its dates, counts, PASS labels, conclusions and source claims apply to its original revision. The final submission status is the reconciliation above. An unchanged backup is also in docs/history/final-reconciliation-2026-11-19/docs/System_Validation_Report_Part3.md.
+
 
 # System Validation Report — Part 3
 

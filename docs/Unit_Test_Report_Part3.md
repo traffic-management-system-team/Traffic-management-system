@@ -1,3 +1,23 @@
+# Unit Test Report — Part 3
+
+## Final submission reconciliation 19 November 2026
+
+Reconciled 19 November 2026 for the 20 November 2026 viva. Source baseline 5cbdc012591221ccf300a9656b55bb1c5c38a2d2, branch feature/professional-traffic-ui, plus the seven existing uncommitted frontend redesign files. This documentation change does not commit or approve the redesign. Execution results below belong to the 19 November audit working tree. Historical results retain their original dates and revisions. No new execution is implied by this reconciliation.
+
+## Current unit and regression results
+
+The 19 November audit ran Vitest 33/33 in four files and CTest 15/15 using existing Release binaries. All final runs had zero failures/skips. The old 38-test count belongs to 42a57c4. In PR #53, IntersectionDashboard.test.tsx changed from ten dashboard tests to five monitor tests while the other suites stayed at 8 client, 4 hook and 16 App tests. Thus 8+4+5+16=33. This is a revision difference, not five newly failing tests.
+
+Backend targets cover vehicle_manager, queue_manager, queue_empty_safety, queue_length, traffic_signal, traffic_manager, gui_model, input_validator, security_reliability, simulation_service, simulation_statistics_manager, simulation_control_api, simulation_http_server, simulation_state_serializer and simulation_api_contract. CTest counts executables, not individual assertions. Core test checks include deterministic arrivals/FIFO/signals, statistics, config locks/bounds and invalid/error paths. Frontend tests cover actual API clients/hooks/components and controls.
+
+TypeScript checking and production frontend build passed. The fresh native rebuild stalled and was interrupted, so no successful fresh C++ build is claimed. Initial sandbox socket failures and successful permitted rerun are in the evidence ledger. Historical core sanitizer/static-analysis results remain revision-scoped. This report is complete for recorded unit-test scope with those limitations.
+
+Full commands, initial failures, successful reruns, environment and scope are in [Final verification evidence](FINAL_VERIFICATION_EVIDENCE_2026-11-19.md). This is a documentation refresh of verified recorded evidence, not a new test run.
+
+## Preserved historical report
+
+The original report follows verbatim. All its dates, counts, PASS labels, conclusions and source claims apply to its original revision. The final submission status is the reconciliation above. An unchanged backup is also in docs/history/final-reconciliation-2026-11-19/docs/Unit_Test_Report_Part3.md.
+
 
 # Unit Test Report — Part 3
 

@@ -1,5 +1,33 @@
 # Branch Coverage Report â€” Part 3
 
+## Final submission reconciliation 19 November 2026
+
+Reconciled 19 November 2026 for the 20 November 2026 viva. Source baseline 5cbdc012591221ccf300a9656b55bb1c5c38a2d2, branch feature/professional-traffic-ui, plus the seven existing uncommitted frontend redesign files. This documentation change does not commit or approve the redesign. Execution results below belong to the 19 November audit working tree. Historical results retain their original dates and revisions. No new execution is implied by this reconciliation.
+
+## Current branch coverage status
+
+Fresh frontend V8 branch counters are 263/326 = 80.67%, from 33 passing tests on the 19 November audit working tree. Historical 79.90% is retained below for 42a57c4 and its 38 tests. These measurements describe different frontend revisions.
+
+| Frontend file/scope | Branch percent | Scope |
+|---|---|---|
+| BackendConnectionCard | 62.16% | Loading/error/compact/connection conditionals |
+| SectionNavigation | 50% | Current-page branches |
+| useBackendStatus | 69.38% | Polling, command and error outcomes |
+| ControlCentre | 87.50% | Snapshot/approach availability |
+| SimulationMonitor | 86.51% | Signal, queue and detected-event branches |
+
+These are V8 source branch counters, not C++ control-flow branches. Fresh raw frontend branch-map availability is NOT VERIFIED, so no new per-line branch listing beyond recorded audit evidence is invented.
+
+**C++ branch coverage remains NOT MEASURED.** Microsoft collector Cobertura line entries carry branch=False and supply no branch outcomes. The XML root branch-rate=1 cannot establish branch coverage. Historical native 89.42% is line/block coverage only. There is no verified complete-project branch percentage. This mandatory evidence gap remains open. A future native branch-capable instrumented run must identify compiler/tool, source revision, branch numerator/denominator and excluded scopes. No threshold is invented.
+
+Full commands, initial failures, successful reruns, environment and scope are in [Final verification evidence](FINAL_VERIFICATION_EVIDENCE_2026-11-19.md). This is a documentation refresh of verified recorded evidence, not a new test run.
+
+## Preserved historical report
+
+The original report follows verbatim. All its dates, counts, PASS labels, conclusions and source claims apply to its original revision. The final submission status is the reconciliation above. An unchanged backup is also in docs/history/final-reconciliation-2026-11-19/docs/Branch_Coverage_Report_Part3.md.
+
+# Branch Coverage Report â€” Part 3
+
 **Repository:** https://github.com/traffic-management-system-team/Traffic-management-system
 **Source commit:** `42a57c45311551058c41ccf54fec8c2ca88215d2`
 **Date:** 2026-11-16

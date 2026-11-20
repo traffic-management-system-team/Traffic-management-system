@@ -1,0 +1,22 @@
+sequenceDiagram
+  participant UI as React controls
+  participant HTTP as Crow adapter
+  participant API as SimulationControlApi
+  participant Service as SimulationService
+  participant Model as SimModel
+  UI->>HTTP: POST start pause resume or reset
+  HTTP->>API: handle validated method path request
+  API->>Service: lifecycle operation
+  Service->>Model: execute under mutex
+  Note over Service,Model: One scheduler owns ticks and pause acknowledgement follows active tick
+  opt reset
+    Model->>Model: clear queues vehicles ticks stats and restore North GREEN
+    Note over Model: Accepted configuration retained
+  end
+  Service-->>API: authoritative outcome
+  API-->>HTTP: status and envelope
+  HTTP-->>UI: response
+  UI->>HTTP: refresh GET state
+  HTTP->>Service: snapshot
+  Service-->>HTTP: copied snapshot serialized through separate serializer
+  HTTP-->>UI: render authoritative state

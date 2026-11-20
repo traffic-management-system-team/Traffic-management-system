@@ -1,0 +1,21 @@
+sequenceDiagram
+  participant UI as ConfigurationForm
+  participant HTTP as HTTP adapter
+  participant API as SimulationControlApi
+  participant Service as SimulationService
+  participant Model as SimModel
+  UI->>HTTP: PUT complete five field config
+  HTTP->>API: request preserving JSON scalar types
+  API->>API: parse and validate with InputValidator
+  alt invalid fields
+    API-->>UI: validation error through HTTP with field details
+    Note over UI: Retain draft and last accepted values
+  else valid fields
+    API->>Service: setConfig raw values
+    Service->>Model: setConfig under mutex
+    Note over Model: Requires stopped tick zero and generated zero
+    Model-->>Service: accept or reject without replacing prior config
+    Service-->>API: outcome
+    API-->>UI: response through HTTP
+    UI->>HTTP: refresh authoritative snapshot
+  end
